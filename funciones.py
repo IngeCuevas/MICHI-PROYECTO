@@ -89,42 +89,42 @@ def decidir(percepcion):
 # ACCIONES DEL AGENTE
 def actuar(accion):
     mensajes = {
-        "PEDIR_CUIDADO": [
+        "PEDIR CUIDADO": [
             "🤒😿 Michi: Dueño-amo... no me siento muy bien :(( ¿me cuidas?",
             "🥺💔 Michi: Necesito un poquito de atención... por favooor.",
             "🐱🤒 Michi: Creo que necesito que me cuides... miauuu :("
         ],
-        "COMIDA_URGENTE": [
+        "COMIDA URGENTE": [
             "😿🍗 Michi: ¡Dueño-amooo! ¡Tengo muchísima hambre! :(((",
             "🥺🍖 Michi: ¡Miauuuu! Mi pancita está vacía...",
             "😭🍗 Michi: ¡Comida, comida, comida! ¡Por favooor!"
         ],
-        "PEDIR_COMIDA": [
+        "PEDIR COMIDA": [
             "😋🍗 Michi: Dueño-amo... creo que ya tengo un poquito de hambre.",
             "🐱🍖 Michi: ¿Habrá algo rico para este michito?",
             "🥺🍗 Michi: ¿Me das un poquito de comidita?"
         ],
-        "PEDIR_DESCANSO": [
+        "PEDIR DESCANSO": [
             "😴💤 Michi: Tengo muchísimo sueñito...",
             "🥱🐱 Michi: Dueño-amo... creo que necesito descansar.",
             "😴🛏️ Michi: Mis ojitos ya se están cerrando... zzz..."
         ],
-        "PEDIR_CARINO": [
+        "PEDIR CARINO": [
             "🥺❤️ Michi: Dueño-amo... ¿me das un poquito de cariño?",
             "😻💕 Michi: Quierooo mimosssss.",
             "😿🐾 Michi: Hace mucho que no recibo cariño... te extrañoooo :((("
         ],
-        "PEDIR_ATENCION": [
+        "PEDIR ATENCION": [
             "😾💢 Michi: ¡Oyeee! ¿Ya te olvidaste de mí?",
             "🥺😿 Michi: Hace mucho que no me haces caso...",
             "🐱💔 Michi: Dueño-amo... ¿todavía estás ahí? :("
         ],
-        "ESTAR_TRISTE": [
+        "ESTAR TRISTE": [
             "😭😿 Michi: Estoy muuuy triste... te extrañoooo :(((((",
             "🥺💔 Michi: Quiero pasar tiempo contigo...",
             "😿🐾 Michi: Hoy mi corazoncito gatuno está triste :((("
         ],
-        "QUERER_JUGAR": [
+        "QUERER JUGAR": [
             "🤩🎾 Michi: ¡Dueño-amooo! ¡Quiero jugar!",
             "😸🐾 Michi: ¡Vamos a jugar, vamos, vamos!",
             "😻⚡ Michi: ¡Tengo muchísima energía! ¡Juguemos!"
@@ -646,49 +646,61 @@ def ciclo_agente():
             decision = decidir(percepcion)
             print("\n\n⏰🐾 Ha pasado una hora para Michi...")
             actuar(decision)
-# INICIAR AGENTE
-hilo = threading.Thread(target=ciclo_agente, daemon=True)
-hilo.start()
-# MENÚ PRINCIPAL
-print("\n🐱✨ ¡Bienvenido a tu mascota virtual Michi! ✨🐱")
-print("Puedes interactuar con él usando números o simplemente escribirle.")
-print("Ejemplos:")
-print("  Tú: ¿Quieres jugar?")
-print("  Tú: Michi, ¿tienes hambre?")
-print("  Tú: Te quiero")
-print("  Tú: ¿Cómo estás?")
-print("\nEscribe 'menu' cuando quieras ver las opciones.\n")
-while mascota["viva"]:
-    print("\n¿Qué quieres hacer?")
-    print("1. 👀 Ver estado")
-    print("2. 🍗 Alimentar")
-    print("3. ❤️ Dar cariño")
-    print("4. 🎾 Jugar")
-    print("5. 😴 Mandar a dormir a Michi")
-    print("6. 🗣️ Hablar con Michi")
-    print("7. 🚪 Salir")
-    print("💬 O escribe directamente cualquier frase.")
-    opcion = input("\nTú: ").strip()
-    opcion_normalizada = normalizar_texto(opcion)
-    if opcion_normalizada == "1":
-        mostrar_estado()
-    elif opcion_normalizada == "2":
-        alimentar()
-    elif opcion_normalizada == "3":
-        dar_carino()
-    elif opcion_normalizada == "4":
-        jugar()
-    elif opcion_normalizada == "5":
-        descansar()
-    elif opcion_normalizada == "6":
-        mensaje = input("🗣️ Tú: ")
-        conversar(mensaje)
-    elif opcion_normalizada == "7":
-        print("\n🐱👋 Michi: ¡Miauu! Te voy a extrañar, dueño-amo ❤️")
-        break
-    elif opcion_normalizada == "menu":
-        continue
-    else:
-        # Cualquier texto que no sea una opción se toma como conversación.
-        conversar(opcion)
-print("\n🐾 Programa terminado.")
+# PROGRAMA DE CONSOLA (solo corre si se ejecuta este archivo directamente)
+#
+# Se protege con "if __name__ == '__main__':" para que este archivo se
+# pueda IMPORTAR de forma segura desde otros programas (por ejemplo,
+# interfaz_grafica.py) sin que se dispare automáticamente el hilo del
+# agente ni el menú de consola.
+def iniciar_hilo_agente():
+    """Crea y arranca el hilo del ciclo automático del agente."""
+    hilo = threading.Thread(target=ciclo_agente, daemon=True)
+    hilo.start()
+    return hilo
+def ejecutar_menu_consola():
+    """Corre el menú interactivo por consola (modo texto original)."""
+    print("\n🐱✨ ¡Bienvenido a tu mascota virtual Michi! ✨🐱")
+    print("Puedes interactuar con él usando números o simplemente escribirle.")
+    print("Ejemplos:")
+    print("  Tú: ¿Quieres jugar?")
+    print("  Tú: Michi, ¿tienes hambre?")
+    print("  Tú: Te quiero")
+    print("  Tú: ¿Cómo estás?")
+    print("\nEscribe 'menu' cuando quieras ver las opciones.\n")
+    while mascota["viva"]:
+        print("\n¿Qué quieres hacer?")
+        print("1. 👀 Ver estado")
+        print("2. 🍗 Alimentar")
+        print("3. ❤️ Dar cariño")
+        print("4. 🎾 Jugar")
+        print("5. 😴 Mandar a dormir a Michi")
+        print("6. 🗣️ Hablar con Michi")
+        print("7. 🚪 Salir")
+        print("💬 O escribe directamente cualquier frase.")
+        opcion = input("\nTú: ").strip()
+        opcion_normalizada = normalizar_texto(opcion)
+        if opcion_normalizada == "1":
+            mostrar_estado()
+        elif opcion_normalizada == "2":
+            alimentar()
+        elif opcion_normalizada == "3":
+            dar_carino()
+        elif opcion_normalizada == "4":
+            jugar()
+        elif opcion_normalizada == "5":
+            descansar()
+        elif opcion_normalizada == "6":
+            mensaje = input("🗣️ Tú: ")
+            conversar(mensaje)
+        elif opcion_normalizada == "7":
+            print("\n🐱👋 Michi: ¡Miauu! Te voy a extrañar, dueño-amo ❤️")
+            break
+        elif opcion_normalizada == "menu":
+            continue
+        else:
+            # Cualquier texto que no sea una opción se toma como conversación.
+            conversar(opcion)
+    print("\n🐾 Programa terminado.")
+if __name__ == "__main__":
+    iniciar_hilo_agente()
+    ejecutar_menu_consola()
