@@ -10,9 +10,11 @@ gráfica que:
   1. Muestra un "avatar" de Michi (un emoji grande) que cambia según
      su estado (salud, felicidad, comida, energía).
   2. Muestra barras de progreso con sus estadísticas.
-  3. Ofrece botones para alimentar, dar cariño, jugar y hacer dormir
+  3. Muestra la meta activa que el agente basado en metas está
+     persiguiendo en este momento.
+  4. Ofrece botones para alimentar, dar cariño, jugar y hacer dormir
      a Michi, además de un cuadro de texto para conversar con él.
-  4. Mantiene, igual que en consola, un hilo en segundo plano que hace
+  5. Mantiene, igual que en consola, un hilo en segundo plano que hace
      avanzar el tiempo automáticamente (ciclo_agente).
 
 Como las funciones originales usan print() para "hablar", en vez de
@@ -100,6 +102,39 @@ def color_segun_valor(valor):
     return "#2ecc71"       # verde
 
 
+# Descripciones "amigables" de cada meta, para mostrar la meta activa
+# en un lenguaje más natural que el nombre interno usado en funciones.py
+# (definir_metas devuelve tuplas: (nombre_meta, prioridad, etiqueta_accion)).
+DESCRIPCIONES_METAS = {
+    "salud_critica": "¡cuidar su salud urgentemente!",
+    "comida_urgente": "conseguir comida ya mismo",
+    "comida_baja": "comer algo pronto",
+    "energia_baja": "descansar un poco",
+    "carino_pendiente": "recibir cariño",
+    "atencion_pendiente": "que le prestes atención",
+    "felicidad_baja": "sentirse mejor",
+    "quiere_jugar": "jugar contigo",
+}
+
+
+def obtener_texto_meta():
+    """
+    Consulta las metas insatisfechas de Michi (definidas en
+    funciones.py mediante el agente basado en metas) y arma el texto
+    que se muestra en la interfaz. Si funciones.py todavía no define
+    'definir_metas' (por ejemplo, si no has migrado el agente aún),
+    la interfaz sigue funcionando sin romperse.
+    """
+    if not hasattr(fn, "definir_metas"):
+        return ""
+    metas = fn.definir_metas(fn.percibir())
+    if not metas:
+        return "🎯 Sin metas pendientes: Michi está conforme."
+    nombre_meta, _, _ = metas[0]
+    descripcion = DESCRIPCIONES_METAS.get(nombre_meta, nombre_meta)
+    return f"🎯 Meta actual: {descripcion}"
+
+
 # =====================================================================
 # VENTANA PRINCIPAL
 # =====================================================================
@@ -107,8 +142,8 @@ class VentanaMichi:
     def __init__(self, root):
         self.root = root
         self.root.title("🐱 Michi - Mascota Virtual")
-        self.root.geometry("560x760")
-        self.root.minsize(480, 680)
+        self.root.geometry("560x780")
+        self.root.minsize(480, 700)
         self.root.configure(bg="#fdf6ec")
 
         self.estilo = ttk.Style()
@@ -163,6 +198,13 @@ class VentanaMichi:
             fg="#6b5d4f", wraplength=480, justify="center"
         )
         self.lbl_expresion.pack(pady=(2, 0))
+
+        # Label de la meta activa del agente basado en metas.
+        self.lbl_meta = tk.Label(
+            marco, text="", font=("Segoe UI", 9, "italic"),
+            bg="#fdf6ec", fg="#8a7a68"
+        )
+        self.lbl_meta.pack(pady=(2, 0))
 
     def _crear_barras(self):
         marco = tk.Frame(self.root, bg="#fdf6ec")
@@ -295,6 +337,7 @@ class VentanaMichi:
 
         self.lbl_avatar.configure(text=obtener_avatar())
         self.lbl_expresion.configure(text=fn.obtener_expresion())
+        self.lbl_meta.configure(text=obtener_texto_meta())
 
         for clave in ("salud", "felicidad", "comida", "energia"):
             valor = m[clave]
