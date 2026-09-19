@@ -3,11 +3,12 @@ import threading
 import random
 import unicodedata
 import re
+from collections import deque
 from banco_palabras import CONOCIMIENTOS_IA
 # CONFIGURACIÓN
 # Para pruebas:
 # 60 segundos reales = 1 hora para Michi
-SEGUNDOS_POR_HORA = 60
+SEGUNDOS_POR_HORA = 3600
 # ESTADO DE MICHI
 mascota = {
     "nombre": "Michi",
@@ -23,7 +24,9 @@ mascota = {
 def percibir():
     """
     Michi observa únicamente su estado ACTUAL.
-    No recuerda conversaciones anteriores.
+    No recuerda conversaciones anteriores sobre su cuidado
+    (aunque sí recuerda, por separado, los últimos temas de
+    conversación sobre IA; ver memoria_conversacion más abajo).
     """
     return {
         "salud": mascota["salud"],
@@ -65,66 +68,103 @@ def obtener_expresion():
         return "😸❤️🐾 Estoy feliz de estar contigo"
     else:
         return "🐱✨ Estoy tranquilito... miau"
-# DECISIÓN DEL AGENTE
-def decidir(percepcion):
-    # REGLAS CONDICIÓN -> ACCIÓN
-    if percepcion["salud"] <= 20:
-        return "PEDIR_CUIDADO"
-    elif percepcion["comida"] <= 10:
-        return "COMIDA_URGENTE"
-    elif percepcion["comida"] <= 30:
-        return "PEDIR_COMIDA"
-    elif percepcion["energia"] <= 20:
-        return "PEDIR_DESCANSO"
-    elif percepcion["horas_sin_carino"] >= 4:
-        return "PEDIR_CARINO"
-    elif percepcion["horas_sin_cuidado"] >= 6:
-        return "PEDIR_ATENCION"
-    elif percepcion["felicidad"] <= 30:
-        return "ESTAR_TRISTE"
-    elif percepcion["energia"] >= 80 and percepcion["felicidad"] >= 70:
-        return "QUERER_JUGAR"
-    else:
+
+# ===================================================================
+# AGENTE BASADO EN METAS
+# ===================================================================
+# Michi dejó de ser un agente de reflejo simple. Ahora mantiene una
+# lista EXPLÍCITA de metas (necesidades que quiere satisfacer), cada
+# una con una prioridad. En cada momento, revisa cuáles metas siguen
+# sin cumplirse y elige comunicar/perseguir SIEMPRE la de mayor
+# urgencia, en vez de reaccionar ciegamente a la última percepción.
+#
+# Cada tupla es: (nombre_meta, prueba_de_meta_no_cumplida, prioridad, etiqueta_accion)
+# A mayor número de prioridad, más urgente es esa meta.
+DEFINICION_METAS = [
+    ("salud_critica",      lambda p: p["salud"] <= 20,                              10, "PEDIR_CUIDADO"),
+    ("comida_urgente",     lambda p: p["comida"] <= 10,                              9, "COMIDA_URGENTE"),
+    ("comida_baja",        lambda p: p["comida"] <= 30,                              7, "PEDIR_COMIDA"),
+    ("energia_baja",       lambda p: p["energia"] <= 20,                             6, "PEDIR_DESCANSO"),
+    ("carino_pendiente",   lambda p: p["horas_sin_carino"] >= 4,                      5, "PEDIR_CARINO"),
+    ("atencion_pendiente", lambda p: p["horas_sin_cuidado"] >= 6,                     4, "PEDIR_ATENCION"),
+    ("felicidad_baja",     lambda p: p["felicidad"] <= 30,                            3, "ESTAR_TRISTE"),
+    ("quiere_jugar",       lambda p: p["energia"] >= 80 and p["felicidad"] >= 70,     1, "QUERER_JUGAR"),
+]
+
+
+def definir_metas(percepcion):
+    """
+    Devuelve la lista de metas actualmente NO satisfechas, ordenadas
+    de mayor a menor prioridad. Esto reemplaza la cadena de if/elif
+    de un reflejo simple: en vez de reglas aisladas, ahora hay una
+    lista de objetivos explícitos que compiten entre sí.
+    """
+    metas_pendientes = [
+        (nombre, prioridad, etiqueta)
+        for nombre, prueba, prioridad, etiqueta in DEFINICION_METAS
+        if prueba(percepcion)
+    ]
+    metas_pendientes.sort(key=lambda meta: -meta[1])
+    return metas_pendientes
+
+
+def seleccionar_accion_por_metas(percepcion):
+    """
+    El 'cerebro' del agente basado en metas: revisa todas las metas
+    no satisfechas y elige la acción asociada a la de MAYOR prioridad.
+    Si no hay ninguna meta pendiente, Michi está conforme (TRANQUILO).
+    """
+    metas = definir_metas(percepcion)
+    if not metas:
         return "TRANQUILO"
+    _, _, etiqueta_mas_urgente = metas[0]
+    return etiqueta_mas_urgente
+
+
 # ACCIONES DEL AGENTE
+# NOTA: las claves de este diccionario ahora coinciden EXACTAMENTE con
+# las etiquetas de DEFINICION_METAS (todas con guión bajo). Antes había
+# un desajuste entre "PEDIR_CUIDADO" (que devolvía la decisión) y
+# "PEDIR CUIDADO" (la clave del diccionario, con espacio), por lo que
+# la mayoría de estos mensajes nunca llegaban a imprimirse.
 def actuar(accion):
     mensajes = {
-        "PEDIR CUIDADO": [
+        "PEDIR_CUIDADO": [
             "🤒😿 Michi: Dueño-amo... no me siento muy bien :(( ¿me cuidas?",
             "🥺💔 Michi: Necesito un poquito de atención... por favooor.",
             "🐱🤒 Michi: Creo que necesito que me cuides... miauuu :("
         ],
-        "COMIDA URGENTE": [
+        "COMIDA_URGENTE": [
             "😿🍗 Michi: ¡Dueño-amooo! ¡Tengo muchísima hambre! :(((",
             "🥺🍖 Michi: ¡Miauuuu! Mi pancita está vacía...",
             "😭🍗 Michi: ¡Comida, comida, comida! ¡Por favooor!"
         ],
-        "PEDIR COMIDA": [
+        "PEDIR_COMIDA": [
             "😋🍗 Michi: Dueño-amo... creo que ya tengo un poquito de hambre.",
             "🐱🍖 Michi: ¿Habrá algo rico para este michito?",
             "🥺🍗 Michi: ¿Me das un poquito de comidita?"
         ],
-        "PEDIR DESCANSO": [
+        "PEDIR_DESCANSO": [
             "😴💤 Michi: Tengo muchísimo sueñito...",
             "🥱🐱 Michi: Dueño-amo... creo que necesito descansar.",
             "😴🛏️ Michi: Mis ojitos ya se están cerrando... zzz..."
         ],
-        "PEDIR CARINO": [
+        "PEDIR_CARINO": [
             "🥺❤️ Michi: Dueño-amo... ¿me das un poquito de cariño?",
             "😻💕 Michi: Quierooo mimosssss.",
             "😿🐾 Michi: Hace mucho que no recibo cariño... te extrañoooo :((("
         ],
-        "PEDIR ATENCION": [
+        "PEDIR_ATENCION": [
             "😾💢 Michi: ¡Oyeee! ¿Ya te olvidaste de mí?",
             "🥺😿 Michi: Hace mucho que no me haces caso...",
             "🐱💔 Michi: Dueño-amo... ¿todavía estás ahí? :("
         ],
-        "ESTAR TRISTE": [
+        "ESTAR_TRISTE": [
             "😭😿 Michi: Estoy muuuy triste... te extrañoooo :(((((",
             "🥺💔 Michi: Quiero pasar tiempo contigo...",
             "😿🐾 Michi: Hoy mi corazoncito gatuno está triste :((("
         ],
-        "QUERER JUGAR": [
+        "QUERER_JUGAR": [
             "🤩🎾 Michi: ¡Dueño-amooo! ¡Quiero jugar!",
             "😸🐾 Michi: ¡Vamos a jugar, vamos, vamos!",
             "😻⚡ Michi: ¡Tengo muchísima energía! ¡Juguemos!"
@@ -291,10 +331,12 @@ def detectar_tema_ia(mensaje):
             "michi_agente",
             [
                 "que tipo de agente eres", "que agente eres", "michi que tipo de agente",
-                "por que eres reflejo simple", "michi es reflejo simple", "eres un agente"
+                "por que eres agente basado en metas", "michi es agente basado en metas",
+                "eres un agente", "que metas tienes", "cuales son tus metas",
+                "por que priorizas", "como decides que hacer"
             ]
         ),
-        # LOS CUATRO ENFOQUES
+        # LOS CUATRO ENFOQUES (filosóficos, Russell y Norvig)
         (
             "cuatro_enfoques",
             [
@@ -327,6 +369,85 @@ def detectar_tema_ia(mensaje):
                 "actuar racionalmente","accion racional","agente racional"
             ]
         ),
+        # ENFOQUES DE CONSTRUCCIÓN (simbólica / conectivista / evolutiva)
+        (
+            "enfoques_construccion_ia",
+            [
+                "ia simbolica", "ia conectivista", "ia basada en evolucion",
+                "enfoques de construccion", "paradigmas de la ia",
+                "tipos de ia segun su construccion", "algoritmos geneticos"
+            ]
+        ),
+        # EVOLUCIÓN / HISTORIA
+        (
+            "evolucion_ia",
+            [
+                "evolucion de la ia", "historia de la ia", "hitos de la ia",
+                "linea de tiempo de la ia", "cuando se creo la ia",
+                "origen de la ia", "conferencia de dartmouth", "mycin"
+            ]
+        ),
+        # MÉTODOS DE APRENDIZAJE
+        (
+            "metodos_aprendizaje",
+            [
+                "metodos de aprendizaje", "tipos de aprendizaje",
+                "como aprende una ia", "formas de aprendizaje de la ia"
+            ]
+        ),
+        (
+            "aprendizaje_supervisado",
+            ["aprendizaje supervisado"]
+        ),
+        (
+            "aprendizaje_no_supervisado",
+            ["aprendizaje no supervisado"]
+        ),
+        (
+            "aprendizaje_refuerzo",
+            ["aprendizaje por refuerzo", "aprendizaje reforzado"]
+        ),
+        # APLICACIONES E IA GENERATIVA
+        (
+            "ia_generativa",
+            [
+                "ia generativa", "dall-e", "dalle", "chatgpt", "gemini",
+                "generar imagenes con ia", "generar texto con ia"
+            ]
+        ),
+        (
+            "aplicaciones_ia",
+            [
+                "aplicaciones de la ia", "aplicaciones actuales de la ia",
+                "para que se usa la ia", "usos de la ia",
+                "asistentes virtuales", "vehiculos autonomos", "diagnostico medico"
+            ]
+        ),
+        # SUBCAMPOS
+        (
+            "sistemas_expertos",
+            ["sistemas expertos", "que es un sistema experto"]
+        ),
+        (
+            "aprendizaje_automatico",
+            ["aprendizaje automatico", "machine learning", "que es machine learning"]
+        ),
+        (
+            "subcampos_ia",
+            [
+                "subcampos de la ia", "campos de la ia", "ramas de la ia",
+                "vision por computadora", "procesamiento del lenguaje natural", "pln", "robotica"
+            ]
+        ),
+        # RELACIONES CON OTRAS DISCIPLINAS
+        (
+            "relaciones_ia_disciplinas",
+            [
+                "relacion de la ia con otras disciplinas", "disciplinas relacionadas con la ia",
+                "ia y la filosofia", "ia y neurociencia", "ia y linguistica",
+                "ia y matematicas", "ciencias cognitivas"
+            ]
+        ),
         # TIPOS DE AGENTES
         (
             "tipos_agentes",
@@ -349,19 +470,44 @@ def detectar_tema_ia(mensaje):
         (
             "basado_metas",
             [
-                "agente basado en metas","basado en metas","agente de metas"
+                "agente basado en metas","basado en metas","agente de metas",
+                "agente basado en el logro de metas","logro de metas"
             ]
         ),
         (
             "basado_utilidad",
             [
-                "agente basado en utilidad","basado en utilidad","agente de utilidad"
+                "agente basado en utilidad","basado en utilidad","agente de utilidad",
+                "mejor desempeño","logro del mejor desempeño","agente de mejor desempeño"
             ]
         ),
         (
             "agente_aprende",
             [
                 "agente que aprende","agentes que aprenden","agente de aprendizaje"
+            ]
+        ),
+        # ESTRUCTURA Y AMBIENTES DE UN AGENTE
+        (
+            "estructura_agente",
+            [
+                "estructura de un agente", "partes de un agente",
+                "sensores y actuadores", "funcion de agente",
+                "como esta compuesto un agente"
+            ]
+        ),
+        (
+            "tipos_ambientes",
+            [
+                "tipos de ambientes", "tipos de entornos",
+                "ambiente estatico", "ambiente dinamico", "entorno observable"
+            ]
+        ),
+        (
+            "propiedades_entornos",
+            [
+                "propiedades de los entornos", "propiedades del entorno",
+                "entorno deterministico", "entorno episodico", "entorno semidinamico"
             ]
         ),
         # CONCEPTOS DE AGENTES
@@ -423,13 +569,47 @@ def detectar_tema_ia(mensaje):
         if contiene_alguna(mensaje, palabras_clave):
             return tema
     return None
+
+# ===================================================================
+# MEMORIA CONVERSACIONAL (últimos 3 temas de IA)
+# ===================================================================
+# Michi ahora recuerda los últimos 3 temas de IA de los que habló.
+# Esto le permite responder preguntas de seguimiento como "dame un
+# ejemplo" o "cuales son" sin que el usuario tenga que repetir el
+# tema cada vez, sin dejar de ser (en esencia) un sistema de reglas:
+# no "entiende" el mensaje, solo recuerda cuál fue el último tema
+# válido que detectó.
+memoria_conversacion = {
+    "temas_recientes": deque(maxlen=3)
+}
+
+
+def tema_mas_reciente():
+    """Devuelve el último tema de IA tratado, o None si no hay ninguno."""
+    if memoria_conversacion["temas_recientes"]:
+        return memoria_conversacion["temas_recientes"][-1]
+    return None
+
+
 # RESPONDER PREGUNTAS DE IA
 def responder_ia(mensaje):
     tema = detectar_tema_ia(mensaje)
-    # Si no detectó ningún tema de IA
-    if tema is None:
-        return None
     intencion = detectar_intencion_ia(mensaje)
+
+    # Si el mensaje no menciona ningún tema nuevo, pero sí pide un
+    # seguimiento (ejemplo, lista, función) y hay un tema reciente
+    # guardado en memoria, reutiliza ese tema. Así Michi mantiene el
+    # hilo de la conversación sin necesitar que se repita el tema.
+    if tema is None:
+        if intencion != "definicion" and tema_mas_reciente() is not None:
+            tema = tema_mas_reciente()
+        else:
+            return None
+
+    # Guarda este tema como el más reciente (la memoria conserva
+    # automáticamente solo los últimos 3, gracias al deque).
+    memoria_conversacion["temas_recientes"].append(tema)
+
     informacion = CONOCIMIENTOS_IA[tema]
     # Si existe una respuesta específica
     # para esa intención, la utiliza.
@@ -454,7 +634,9 @@ def conversar(mensaje):
     2. busca palabras o frases,
     3. aplica una regla,
     4. responde inmediatamente.
-    Por eso sigue funcionando como agente de reflejo simple.
+    La única excepción es responder_ia(), que puede apoyarse en el
+    último tema recordado (ver memoria_conversacion) para dar
+    continuidad a preguntas de seguimiento sobre IA.
     """
     mensaje = normalizar_texto(mensaje)
     # CONOCIMIENTOS DE INTELIGENCIA ARTIFICIAL
@@ -622,7 +804,13 @@ def mostrar_estadisticas_de_michi():
 # MOSTRAR ESTADO
 def mostrar_estado():
     percepcion = percibir()
-    decision = decidir(percepcion)
+    metas = definir_metas(percepcion)
+    if metas:
+        _, _, decision = metas[0]
+        resumen_metas = ", ".join(nombre for nombre, _, _ in metas)
+    else:
+        decision = "TRANQUILO"
+        resumen_metas = "ninguna, Michi está conforme"
     print("\n" + "=" * 46)
     print("🐱✨ ESTADO DE MICHI ✨🐱")
     print("=" * 46)
@@ -634,7 +822,8 @@ def mostrar_estado():
     print(f"⚡ Energía: {mascota['energia']}/100")
     print(f"🕐 Horas sin cuidado: {mascota['horas_sin_cuidado']}")
     print(f"💕 Horas sin cariño: {mascota['horas_sin_carino']}")
-    print(f"🤖 Reflejo actual: {decision}")
+    print(f"🎯 Metas pendientes: {resumen_metas}")
+    print(f"🤖 Acción prioritaria: {decision}")
     print("=" * 46)
 # CICLO AUTOMÁTICO DEL AGENTE
 def ciclo_agente():
@@ -643,7 +832,7 @@ def ciclo_agente():
         pasar_una_hora()
         if mascota["viva"]:
             percepcion = percibir()
-            decision = decidir(percepcion)
+            decision = seleccionar_accion_por_metas(percepcion)
             print("\n\n⏰🐾 Ha pasado una hora para Michi...")
             actuar(decision)
 # PROGRAMA DE CONSOLA (solo corre si se ejecuta este archivo directamente)
