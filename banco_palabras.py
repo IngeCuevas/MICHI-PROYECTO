@@ -4,7 +4,9 @@ BANCO DE PALABRAS / BASE DE CONOCIMIENTOS DE MICHI
 
 IMPORTANTE:
 Toda esta información proviene de las presentaciones
-de Inteligencia Artificial proporcionadas para el proyecto.
+de Inteligencia Artificial proporcionadas para el proyecto
+("Introducción a la Inteligencia Artificial" y
+"Agentes Inteligentes y Ambientes").
 
 Michi NO aprende esta información.
 Simplemente consulta respuestas preestablecidas.
@@ -15,17 +17,20 @@ que importa este banco de palabras.
 """
 
 CONOCIMIENTOS_IA = {
-    # INTELIGENCIA ARTIFICIAL
+    # =================================================================
+    # INTELIGENCIA ARTIFICIAL - CONCEPTOS GENERALES
+    # =================================================================
     "inteligencia_artificial": {
         "definicion": [
             "🤖📚 Michi: No solo hay una definición de Inteligencia Artificial. La IA es el estudio de agentes que perciben su entorno y realizan acciones para alcanzar objetivos.",
             "🐱🧠 Michi: La Inteligencia Artificial puede estudiarse desde distintas perspectivas. Una de las principales es construir agentes capaces de percibir su entorno y actuar para alcanzar objetivos.",
-            "🐱🧠 Michi: LUna definición más simple y concreta de la IA es que ella es un área de las ciencias computacionales que trata de emular las capacidades propias del ser humano.",
-            "🤖📚 Michi: De acuuerdo con el padre fundador de la IA, Jhon McCarty; La IA es la ciencia y la ingeniería de hacer máquinas inteligentes, especialmente programas informáticos inteligentes."
+            "🐱🧠 Michi: Una definición más simple y concreta de la IA es que es un área de las ciencias computacionales que trata de emular las capacidades propias del ser humano.",
+            "🤖📚 Michi: De acuerdo con el padre fundador de la IA, John McCarthy; La IA es la ciencia y la ingeniería de hacer máquinas inteligentes, especialmente programas informáticos inteligentes.",
+            "🐱📚 Michi: También se dice que la IA es una rama de las ciencias computacionales que estudia modelos de cómputo capaces de realizar actividades propias de los seres humanos, basándose en el razonamiento y la conducta."
         ],
         "funcion": [
             "😸🧠 Michi: La IA busca construir sistemas capaces de percibir, razonar, aprender y actuar para alcanzar objetivos.",
-            "🤖📚 Michi: La IA busca interacturar con nosotros para potenciar nusestras habilidades humanas. No, nos vaa reemplazar, vino a potenciarnos"
+            "🤖📚 Michi: La IA busca interactuar con nosotros para potenciar nuestras habilidades humanas. No nos va a reemplazar, vino a potenciarnos."
         ]
     },
     # FACETAS DEL COMPORTAMIENTO INTELIGENTE
@@ -42,7 +47,7 @@ CONOCIMIENTOS_IA = {
             "4. 🤖 Actuar: Ejecutar acciones para alcanzar objetivos."
         ]
     },
-    # CUATRO ENFOQUES DE RUSSELL Y NORVIG
+    # CUATRO ENFOQUES DE RUSSELL Y NORVIG (pensar/actuar humano/racional)
     "cuatro_enfoques": {
         "definicion": [
             "🐱📚 Michi: Russell y Norvig organizan la Inteligencia Artificial "
@@ -56,7 +61,6 @@ CONOCIMIENTOS_IA = {
             "4. 🎯 Actuar racionalmente."
         ]
     },
-    # PENSAR COMO HUMANOS
     "pensar_como_humanos": {
         "definicion": [
             "🧠🐱 Michi: Pensar como humanos busca modelar los procesos cognitivos "
@@ -64,12 +68,10 @@ CONOCIMIENTOS_IA = {
             "máquina procesos mentales humanos."
         ],
         "ejemplo": [
-            "🐱💡 Michi: Algunos ejemplos que aparecen en la presentación son "
-            "los sistemas expertos basados en reglas, los modelos de memoria y "
-            "razonamiento humano y los simuladores cognitivos."
+            "🐱💡 Michi: Algunos ejemplos son los sistemas expertos basados en reglas, "
+            "los modelos de memoria y razonamiento humano y los simuladores cognitivos."
         ]
     },
-    # ACTUAR COMO HUMANOS
     "actuar_como_humanos": {
         "definicion": [
             "👤🤖 Michi: Actuar como humanos busca construir máquinas que se "
@@ -81,7 +83,6 @@ CONOCIMIENTOS_IA = {
             "los chatbots conversacionales y el reconocimiento de voz y gestos."
         ]
     },
-    # PENSAR RACIONALMENTE
     "pensar_racionalmente": {
         "definicion": [
             "♟️🧠 Michi: Pensar racionalmente consiste en utilizar la lógica para "
@@ -93,7 +94,6 @@ CONOCIMIENTOS_IA = {
             "de planificación lógica."
         ]
     },
-    # ACTUAR RACIONALMENTE
     "actuar_racionalmente": {
         "definicion": [
             "🎯🤖 Michi: Actuar racionalmente significa elegir la mejor acción "
@@ -104,7 +104,129 @@ CONOCIMIENTOS_IA = {
             "de recomendación y los agentes que juegan ajedrez o Go."
         ]
     },
-    # AGENTE
+    # =================================================================
+    # NUEVO: EVOLUCIÓN / HISTORIA DE LA IA
+    # =================================================================
+    "evolucion_ia": {
+        "definicion": [
+            "📜🐱 Michi: La IA ha tenido varios hitos importantes desde que se acuñó el término. No nació de un día para otro, fue evolucionando por décadas."
+        ],
+        "lista": [
+            "🐱📚 Michi: Algunos hitos importantes en la historia de la IA:\n"
+            "1. 1956: Se acuña el término 'inteligencia artificial' en la Conferencia de Dartmouth.\n"
+            "2. 1969: Se desarrolla MYCIN, el primer sistema experto, capaz de diagnosticar infecciones bacterianas.\n"
+            "3. 1980: Se desarrollan las redes neuronales artificiales, que permiten a las máquinas aprender de los datos.\n"
+            "4. 2012: AlexNet gana el ImageNet Challenge, demostrando la eficacia de las redes neuronales profundas.\n"
+            "5. 2020: Aparecen modelos de lenguaje como GPT-3, capaces de generar texto casi indistinguible del humano."
+        ]
+    },
+    # NUEVO: ENFOQUES DE CONSTRUCCIÓN (simbólica / conectivista / evolutiva)
+    "enfoques_construccion_ia": {
+        "definicion": [
+            "🔍🐱 Michi: Además de los cuatro enfoques de Russell y Norvig, también existen distintos enfoques según cómo se construye la IA por dentro."
+        ],
+        "lista": [
+            "😸🧠 Michi: Los principales enfoques de construcción de la IA son:\n"
+            "1. 🔣 IA Simbólica: Basada en la manipulación de símbolos y reglas lógicas.\n"
+            "2. 🧬 IA Conectivista: Usa redes neuronales artificiales que emulan la estructura del cerebro humano.\n"
+            "3. 🧪 IA Basada en Evolución: Emplea algoritmos genéticos y técnicas inspiradas en procesos evolutivos naturales."
+        ]
+    },
+    # NUEVO: MÉTODOS DE APRENDIZAJE (visión general)
+    "metodos_aprendizaje": {
+        "definicion": [
+            "📚🐱 Michi: Existen distintos métodos con los que una IA puede aprender de los datos."
+        ],
+        "lista": [
+            "😺📈 Michi: Los principales métodos de aprendizaje en IA son:\n"
+            "1. 🏷️ Aprendizaje Supervisado: el sistema aprende a partir de datos etiquetados.\n"
+            "2. 🔎 Aprendizaje No Supervisado: busca patrones en datos que no están etiquetados.\n"
+            "3. 🎮 Aprendizaje por Refuerzo: el agente aprende interactuando con el entorno y recibiendo recompensas o castigos."
+        ]
+    },
+    "aprendizaje_supervisado": {
+        "definicion": [
+            "🏷️🐱 Michi: El aprendizaje supervisado es cuando el sistema aprende a partir de datos que ya vienen etiquetados, es decir, con la respuesta correcta incluida."
+        ]
+    },
+    "aprendizaje_no_supervisado": {
+        "definicion": [
+            "🔎🐱 Michi: El aprendizaje no supervisado busca encontrar patrones y estructuras en datos que NO están etiquetados, sin que nadie le diga cuál es la respuesta correcta."
+        ]
+    },
+    "aprendizaje_refuerzo": {
+        "definicion": [
+            "🎮🐱 Michi: El aprendizaje por refuerzo es cuando el agente aprende interactuando con su entorno, recibiendo recompensas cuando lo hace bien y castigos cuando no."
+        ],
+        "ejemplo": [
+            "😸💡 Michi: Un ejemplo sería una IA que juega videojuegos: prueba movimientos, y aprende a repetir los que le dan puntos y a evitar los que la hacen perder."
+        ]
+    },
+    # NUEVO: APLICACIONES ACTUALES DE LA IA
+    "aplicaciones_ia": {
+        "definicion": [
+            "🌐🐱 Michi: La IA ya está presente en muchísimas áreas de nuestra vida diaria, no solo en laboratorios de investigación."
+        ],
+        "lista": [
+            "🐱🌍 Michi: Algunas aplicaciones actuales de la IA son:\n"
+            "1. 🗣️ Asistentes Virtuales: Siri, Alexa, Google Assistant.\n"
+            "2. 🚗 Vehículos Autónomos: coches que se conducen solos usando IA para navegar y decidir.\n"
+            "3. 🏥 Diagnóstico Médico: sistemas que analizan imágenes médicas y datos clínicos para detectar enfermedades."
+        ],
+        "ejemplo": [
+            "😻💡 Michi: Tesla Autopilot es un buen ejemplo: ayuda a reducir accidentes por error humano y optimiza rutas para gastar menos energía y tiempo."
+        ]
+    },
+    # NUEVO: IA GENERATIVA
+    "ia_generativa": {
+        "definicion": [
+            "🎨🐱 Michi: La IA Generativa es la que puede crear contenido nuevo, como imágenes, texto o música, en vez de solo analizar datos existentes."
+        ],
+        "ejemplo": [
+            "🖼️💬 Michi: Ejemplos de IA generativa son DALL·E (crea imágenes a partir de texto) y ChatGPT o Gemini (generan texto y conversan). También se usan para ayudar a estudiantes con redacción, traducción y creación de contenido para marketing."
+        ]
+    },
+    # NUEVO: SUBCAMPOS DE LA IA
+    "subcampos_ia": {
+        "definicion": [
+            "🔬🐱 Michi: La Inteligencia Artificial se divide en varios subcampos, cada uno enfocado en un tipo de problema distinto."
+        ],
+        "lista": [
+            "🐱🔬 Michi: Algunos subcampos importantes de la IA son:\n"
+            "1. 👁️ Visión por Computadora: interpretación y procesamiento de imágenes del mundo real.\n"
+            "2. 💬 Procesamiento del Lenguaje Natural (PLN): interacción entre computadoras y lenguaje humano.\n"
+            "3. 🦾 Robótica: integración de la IA en máquinas que realizan tareas físicas.\n"
+            "4. 🧑‍💼 Sistemas Expertos: emulan la toma de decisiones de un experto humano.\n"
+            "5. 📈 Aprendizaje Automático (Machine Learning): algoritmos que aprenden de los datos y mejoran con el tiempo."
+        ]
+    },
+    "sistemas_expertos": {
+        "definicion": [
+            "🧑‍💼🐱 Michi: Un sistema experto es un programa diseñado para emular la toma de decisiones de un experto humano en un dominio específico, como el diagnóstico médico."
+        ]
+    },
+    "aprendizaje_automatico": {
+        "definicion": [
+            "📈🐱 Michi: El aprendizaje automático, o Machine Learning, es el desarrollo de algoritmos que permiten a las máquinas aprender de los datos y mejorar su desempeño con el tiempo, sin ser programadas paso a paso para cada tarea."
+        ]
+    },
+    # NUEVO: RELACIONES DE LA IA CON OTRAS DISCIPLINAS
+    "relaciones_ia_disciplinas": {
+        "definicion": [
+            "🔗🐱 Michi: La IA no se desarrolla sola: se relaciona con muchas otras disciplinas que le aportan teorías, modelos y herramientas."
+        ],
+        "lista": [
+            "😸🔗 Michi: Algunas disciplinas relacionadas con la IA son:\n"
+            "1. 🧠 Ciencias Cognitivas: estudian la mente y sus procesos, aportando modelos para emular el pensamiento humano.\n"
+            "2. 🤔 Filosofía: aborda cuestiones éticas y ontológicas, como la naturaleza de la conciencia.\n"
+            "3. 🧬 Neurociencia: estudia el cerebro y el sistema nervioso, inspirando los modelos de redes neuronales.\n"
+            "4. 🗣️ Lingüística: analiza el lenguaje humano, aportando al procesamiento del lenguaje natural.\n"
+            "5. ➗ Matemáticas y Estadística: dan las bases teóricas para los algoritmos y modelos de aprendizaje."
+        ]
+    },
+    # =================================================================
+    # AGENTES - ESTRUCTURA Y CONCEPTOS
+    # =================================================================
     "agente": {
         "definicion": [
             "🤖🐱 Michi: Un agente es cualquier entidad que percibe su entorno "
@@ -117,11 +239,9 @@ CONOCIMIENTOS_IA = {
             "la procesa y después ejecuta una acción mediante sus actuadores."
         ],
         "ejemplo": [
-            "😸💡 Michi: En la presentación aparecen como ejemplos un robot, "
-            "un automóvil autónomo, ChatGPT, un dron y un robot aspiradora."
+            "😸💡 Michi: Ejemplos de agentes son un robot, un automóvil autónomo, ChatGPT, un dron y un robot aspiradora."
         ]
     },
-    # AGENTE INTELIGENTE
     "agente_inteligente": {
         "definicion": [
             "🧠🤖 Michi: Un agente inteligente selecciona acciones que le permiten "
@@ -129,16 +249,14 @@ CONOCIMIENTOS_IA = {
             "la información que percibe."
         ]
     },
-    # FORMAS QUE PUEDE ADOPTAR UN AGENTE
     "formas_agente": {
         "lista": [
-            "🐱📚 Michi: Según la presentación, un agente puede adoptar distintas formas:\n"
-            "1. 👤 Agente humano.\n"
-            "2. 🤖 Agente robótico o artificial.\n"
-            "3. 💻 Agente software."
+            "🐱📚 Michi: Un agente puede adoptar distintas formas:\n"
+            "1. 👤 Agente humano: tiene sensores naturales (ojos, oídos) y actuadores como las manos y la voz.\n"
+            "2. 🤖 Agente robótico: puede tener cámaras y sensores de proximidad como entradas, y motores o brazos mecánicos como salidas.\n"
+            "3. 💻 Agente software: interactúa con archivos, redes y sistemas mediante entradas digitales."
         ]
     },
-    # CÓMO SE CONSTRUYE UN AGENTE
     "construccion_agente": {
         "definicion": [
             "🐱⚙️ Michi: Un agente se construye combinando una arquitectura "
@@ -149,30 +267,39 @@ CONOCIMIENTOS_IA = {
             "computacionales y el programa determina el comportamiento del agente."
         ]
     },
+    # NUEVO: ESTRUCTURA GENERAL DE UN AGENTE (sensores / función / actuadores)
+    "estructura_agente": {
+        "definicion": [
+            "🐾🐱 Michi: Todo agente inteligente está compuesto básicamente por tres partes: sensores, una función de agente y actuadores."
+        ],
+        "lista": [
+            "🤖📚 Michi: La estructura básica de un agente es:\n"
+            "1. 👀 Sensores: captan información del entorno (ej. cámaras, micrófonos, sensores de temperatura).\n"
+            "2. 🧠 Función de Agente: toma decisiones basadas en la percepción y su conocimiento interno.\n"
+            "3. ⚙️ Actuadores: ejecutan acciones para modificar el entorno (ej. motores, brazos robóticos, respuestas de software)."
+        ]
+    },
     # TIPOS DE AGENTES
     "tipos_agentes": {
         "lista": [
-            "🤖📚 Michi: En nuestra presentación aparecen cinco tipos principales:\n"
+            "🤖📚 Michi: Existen cinco tipos principales de agentes:\n"
             "1. ⚡ Agente de reflejo simple.\n"
             "2. 🧠 Agente basado en modelos.\n"
             "3. 🎯 Agente basado en metas.\n"
-            "4. ⭐ Agente basado en utilidad.\n"
+            "4. ⭐ Agente basado en utilidad (o en el mejor desempeño).\n"
             "5. 📈 Agente que aprende."
         ]
     },
-    # AGENTE DE REFLEJO SIMPLE
     "reflejo_simple": {
         "definicion": [
             "⚡🐱 Michi: Un agente de reflejo simple selecciona acciones "
             "basándose únicamente en la percepción actual, sin considerar "
-            "el historial de estados del entorno."
+            "el historial de estados del entorno. Funciona con reglas del tipo 'Si-Entonces'."
         ],
         "ejemplo": [
-            "😸💡 Michi: La presentación utiliza como ejemplos un termostato, "
-            "un robot aspiradora simple y un sensor de movimiento."
+            "😸💡 Michi: Ejemplos son un termostato, un robot aspiradora simple y un sensor de movimiento. Su problema es que no recuerda nada: por ejemplo, una aspiradora de reflejo simple no recuerda qué habitación ya limpió antes."
         ]
     },
-    # AGENTE BASADO EN MODELOS
     "basado_modelos": {
         "definicion": [
             "🧠🐱 Michi: Un agente basado en modelos mantiene un estado interno "
@@ -184,51 +311,73 @@ CONOCIMIENTOS_IA = {
             "del lugar es un ejemplo de agente basado en modelos."
         ]
     },
-    # AGENTE BASADO EN METAS
     "basado_metas": {
         "definicion": [
-            "🎯🐱 Michi: Un agente basado en metas no solamente considera "
-            "el estado del entorno; también tiene una meta u objetivo y elige "
-            "acciones que lo acercan a ella."
+            "🎯🐱 Michi: Un agente basado en metas no solo reacciona a su entorno; "
+            "también tiene un objetivo definido y usa modelos de planificación "
+            "para evaluar acciones y elegir la mejor opción que lo acerque a esa meta."
         ],
         "ejemplo": [
-            "😸💡 Michi: La presentación muestra como ejemplos un GPS o navegador, "
-            "un robot humanoide y la planificación de tareas."
+            "😸💡 Michi: Ejemplos son un GPS o navegador que elige la mejor ruta a un destino, un robot humanoide y la planificación de tareas. También una aspiradora que decide moverse solo cuando detecta suciedad, para gastar el menor número de movimientos posible."
         ]
     },
-    # AGENTE BASADO EN UTILIDAD
     "basado_utilidad": {
         "definicion": [
-            "⭐🐱 Michi: Un agente basado en utilidad no solo busca alcanzar "
-            "un objetivo, sino que elige la acción que maximiza su utilidad; "
-            "es decir, qué tan buena resulta una solución."
+            "⭐🐱 Michi: Un agente basado en utilidad, o basado en el logro del mejor desempeño, "
+            "no solo busca alcanzar un objetivo, sino hacerlo de la manera más eficiente posible: "
+            "evalúa varias alternativas y elige la mejor."
         ],
         "ejemplo": [
-            "😸💡 Michi: La elección de una ruta en un GPS es un ejemplo: "
-            "puede comparar distintas rutas y escoger la que considere mejor."
+            "😸💡 Michi: AlphaGo es un gran ejemplo: es una IA que aprende a jugar Go mejorando sus estrategias con cada partida. También un GPS que compara varias rutas y elige la mejor según distancia, tráfico o tiempo."
         ]
     },
-    # AGENTE QUE APRENDE
     "agente_aprende": {
         "definicion": [
             "📈🤖 Michi: Un agente que aprende mejora su desempeño con la experiencia "
             "y ajusta su comportamiento para trabajar de manera más eficiente."
         ],
         "ejemplo": [
-            "🐱💡 Michi: En la presentación aparecen ejemplos como AlphaGo, "
-            "ChatGPT, robots modernos y vehículos autónomos."
+            "🐱💡 Michi: Ejemplos son AlphaGo, ChatGPT, robots modernos y vehículos autónomos."
+        ]
+    },
+    # NUEVO: TIPOS DE AMBIENTES
+    "tipos_ambientes": {
+        "definicion": [
+            "🌍🐱 Michi: El ambiente en el que opera un agente afecta directamente su diseño y funcionamiento."
+        ],
+        "lista": [
+            "🐱🌍 Michi: Los ambientes se pueden clasificar en:\n"
+            "1. ⏱️ Estático vs. Dinámico: si el ambiente cambia mientras el agente decide (ej. ajedrez vs. conducir un auto).\n"
+            "2. 🔢 Discreto vs. Continuo: si hay un número finito de estados (ej. damas vs. robot en una fábrica).\n"
+            "3. 👁️ Completamente observable vs. Parcialmente observable: si el agente tiene acceso a toda la información relevante o solo a una parte (ej. ajedrez vs. robot explorador en Marte)."
+        ]
+    },
+    # NUEVO: PROPIEDADES DE LOS ENTORNOS DE TAREAS
+    "propiedades_entornos": {
+        "definicion": [
+            "📋🐱 Michi: Los entornos de tareas tienen propiedades específicas que ayudan a caracterizarlos y a diseñar mejor al agente."
+        ],
+        "lista": [
+            "🐱📋 Michi: Las principales propiedades de los entornos de tareas son:\n"
+            "1. 🎲 Determinístico vs. Estocástico: si el próximo estado depende solo del estado actual y la acción, o si hay incertidumbre.\n"
+            "2. 🔁 Episódico vs. Secuencial: si cada acción es independiente, o si las acciones pasadas afectan a las futuras.\n"
+            "3. ⏱️ Estático vs. Dinámico: si el entorno cambia o no mientras el agente decide.\n"
+            "4. ⏳ Semidinámico: el entorno no cambia, pero el desempeño puede verse afectado por el tiempo (ej. ajedrez con reloj).\n"
+            "5. 🔢 Discreto vs. Continuo: si el número de estados y acciones posibles es finito o infinito."
         ]
     },
     # ¿QUÉ TIPO DE AGENTE ES MICHI?
     "michi_agente": {
         "definicion": [
-            "😸⚡ Michi: ¡Yo soy un agente de reflejo simple! "
-            "Observo mi percepción actual y aplico reglas condición → acción. "
-            "No necesito recordar conversaciones anteriores para decidir."
+            "🎯🐱 Michi: ¡Ahora soy un agente basado en metas! Ya no me limito a reaccionar con reglas fijas: tengo una lista de necesidades (salud, comida, energía, cariño, atención y felicidad) y siempre persigo primero la que más urge.",
+            "😸🎯 Michi: Superé mi etapa de reflejo simple. Ahora evalúo cuáles de mis metas no están satisfechas y priorizo la más importante antes de decidir qué pedirte."
         ],
         "funcion": [
-            "🐱🤖 Michi: Por ejemplo, si detecto la palabra 'jugar' y tengo energía, "
-            "respondo usando una regla. Eso es comportamiento de reflejo simple."
+            "🤖📚 Michi: Por ejemplo, si mi salud está crítica Y también tengo hambre, priorizo pedir cuidado primero, porque esa meta tiene mayor urgencia que las demás. Así decido qué necesidad atender antes que otra.",
+            "🐱⚙️ Michi: Cada una de mis necesidades tiene una prioridad distinta. Cuando varias están pendientes a la vez, elijo comunicarte la más urgente en vez de simplemente reaccionar a la última percepción, como haría un agente de reflejo simple."
+        ],
+        "ejemplo": [
+            "😻💡 Michi: Es como el GPS que vimos en la presentación de Agentes Inteligentes: no solo reacciona al entorno, tiene un objetivo (llegar a destino) y planifica para lograrlo. Yo hago lo mismo, pero con mis necesidades básicas."
         ]
     }
 }
