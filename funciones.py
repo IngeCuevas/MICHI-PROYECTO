@@ -5,7 +5,8 @@ import unicodedata
 import re
 import os
 import json
-from collections import deque
+from datetime import datetime, date, timedelta
+from collections import deque, Counter
 from banco_palabras import CONOCIMIENTOS_IA
 # CONFIGURACIÓN
 # Para pruebas:
@@ -211,10 +212,226 @@ def revisar_derrota():
     elif mascota["horas_sin_cuidado"] >= 24:
         mascota["viva"] = False
         print("\n😭💔 Tu irresponsabilidad ha obligado a Michi a abandonar el hogar... Fin del juego.")
+# ===================================================================
+# RECONOCIMIENTO DE PATRONES: HÁBITOS DEL DUEÑO
+# ===================================================================
+# Cada vez que el dueño cuida a Michi (alimentar, dar cariño, jugar o
+# hacer dormir), se guarda un registro con:
+#   - la hora del reloj real (para saber CUÁNDO suele venir),
+#   - la acción realizada (para saber QUÉ hace más),
+#   - cuántas horas de Michi habían pasado sin cuidado (para saber
+#     CUÁNTO lo deja esperando).
+# Con ese historial, Michi busca regularidades usando reglas y umbrales
+# simples (por ejemplo: "más de la mitad de las visitas son de noche").
+# No predice ni "entiende": solo cuenta y compara. El historial se
+# guarda en habitos_michi.json, así que los patrones sobreviven entre
+# sesiones y aunque Michi muera.
+ARCHIVO_HABITOS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "habitos_michi.json"
+)
+MAX_EVENTOS = 500      # solo se conservan los últimos registros
+MIN_EVENTOS = 6        # mínimo de cuidados antes de hablar de patrones
+UMBRAL_PATRON = 0.5    # un comportamiento es "patrón" si es >= 50% de los casos
+
+historial_cuidados = []
+ultimo_aviso = {"clave": None}   # evita repetir el aviso de "es tu hora"
+
+VERBOS_ACCION = {
+    "alimentar": "me das de comer",
+    "dar_carino": "me das cariño",
+    "jugar": "juegas conmigo",
+    "descansar": "me mandas a dormir",
+}
+NUNCA_ACCION = {
+    "alimentar": "dado de comer",
+    "dar_carino": "dado cariño",
+    "jugar": "jugado conmigo",
+    "descansar": "mandado a dormir",
+}
+FRASE_FRANJA = {
+    "madrugada": "de madrugada",
+    "mañana": "por la mañana",
+    "tarde": "por la tarde",
+    "noche": "por la noche",
+}
+
+
+def franja_del_dia(hora):
+    """Convierte una hora (0-23) en madrugada, mañana, tarde o noche."""
+    if hora < 6:
+        return "madrugada"
+    if hora < 12:
+        return "mañana"
+    if hora < 19:
+        return "tarde"
+    return "noche"
+
+
+def guardar_habitos():
+    try:
+        with open(ARCHIVO_HABITOS, "w", encoding="utf-8") as archivo:
+            json.dump({"eventos": historial_cuidados}, archivo,
+                      ensure_ascii=False, indent=1)
+    except OSError:
+        pass  # si no se puede guardar, Michi sigue funcionando en memoria
+
+
+def cargar_habitos():
+    if not os.path.exists(ARCHIVO_HABITOS):
+        return
+    try:
+        with open(ARCHIVO_HABITOS, encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        for e in datos.get("eventos", []):
+            if e["accion"] in VERBOS_ACCION:
+                date.fromisoformat(e["fecha"])   # valida el formato
+                historial_cuidados.append({
+                    "accion": e["accion"],
+                    "hora": int(e["hora"]),
+                    "fecha": e["fecha"],
+                    "espera": int(e.get("espera", 0)),
+                })
+        del historial_cuidados[:-MAX_EVENTOS]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        historial_cuidados.clear()   # archivo dañado: empieza sin historial
+
+
+def registrar_cuidado(accion, momento=None):
+    """
+    Anota un cuidado del dueño. Se llama al INICIO de alimentar(),
+    dar_carino(), jugar() y descansar(), antes de que se reinicie
+    horas_sin_cuidado (por eso ese valor es la espera real).
+    'momento' solo sirve para hacer pruebas con fechas simuladas.
+    """
+    momento = momento or datetime.now()
+    historial_cuidados.append({
+        "accion": accion,
+        "hora": momento.hour,
+        "fecha": momento.date().isoformat(),
+        "espera": mascota["horas_sin_cuidado"],
+    })
+    del historial_cuidados[:-MAX_EVENTOS]
+    guardar_habitos()
+
+
+def franja_habitual():
+    """Franja del día en la que el dueño suele venir, o None si no hay patrón."""
+    if len(historial_cuidados) < MIN_EVENTOS:
+        return None
+    conteo = Counter(franja_del_dia(e["hora"]) for e in historial_cuidados)
+    franja, veces = conteo.most_common(1)[0]
+    if veces / len(historial_cuidados) >= UMBRAL_PATRON:
+        return franja
+    return None
+
+
+def racha_de_dias(hoy):
+    """Días consecutivos (hasta hoy o ayer) en los que hubo al menos un cuidado."""
+    dias = {date.fromisoformat(e["fecha"]) for e in historial_cuidados}
+    dia = hoy if hoy in dias else hoy - timedelta(days=1)
+    racha = 0
+    while dia in dias:
+        racha += 1
+        dia -= timedelta(days=1)
+    return racha
+
+
+def analizar_habitos(hoy=None):
+    """Devuelve una lista de observaciones (texto). Requiere MIN_EVENTOS registros."""
+    hoy = hoy or date.today()
+    eventos = historial_cuidados
+    n = len(eventos)
+    obs = []
+
+    # 1. CUÁNDO: ¿hay una franja horaria dominante?
+    franja, veces = Counter(
+        franja_del_dia(e["hora"]) for e in eventos).most_common(1)[0]
+    if veces / n >= UMBRAL_PATRON:
+        obs.append(f"🕐 Sueles venir {FRASE_FRANJA[franja]} "
+                   f"({round(100 * veces / n)}% de tus cuidados).")
+    else:
+        obs.append("🕐 No tienes un horario fijo: me cuidas a distintas horas del día.")
+
+    # 2. QUÉ: ¿hay una acción dominante? ¿alguna que nunca haces?
+    acciones = Counter(e["accion"] for e in eventos)
+    top, veces = acciones.most_common(1)[0]
+    if veces / n >= UMBRAL_PATRON:
+        obs.append(f"🎯 Casi siempre {VERBOS_ACCION[top]} "
+                   f"({round(100 * veces / n)}% de las veces).")
+    else:
+        obs.append("🎯 Repartes tus cuidados de forma bastante pareja.")
+    if n >= 8:
+        nunca = [NUNCA_ACCION[a] for a in VERBOS_ACCION if acciones.get(a, 0) == 0]
+        if nunca:
+            obs.append("🙀 Nunca me has " + " ni ".join(nunca) + ".")
+
+    # 3. CUÁNTO: ¿qué tanto me dejas esperando?
+    espera_media = sum(e["espera"] for e in eventos) / n
+    peor = max(e["espera"] for e in eventos)
+    if espera_media <= 3:
+        obs.append(f"💚 Eres muy atento: me atiendes tras {espera_media:.1f} horas "
+                   f"de espera en promedio (la peor fue de {peor}).")
+    elif espera_media <= 7:
+        obs.append(f"💛 Me atiendes con regularidad: {espera_media:.1f} horas de espera "
+                   f"en promedio (la peor fue de {peor}).")
+    else:
+        obs.append(f"💔 Sueles dejarme esperando mucho: {espera_media:.1f} horas en "
+                   f"promedio (la peor fue de {peor}).")
+
+    # 4. CONSTANCIA: días distintos y rachas
+    dias = {e["fecha"] for e in eventos}
+    obs.append(f"📅 Me has cuidado en {len(dias)} día(s) distinto(s), "
+               f"unas {n / len(dias):.1f} veces por día.")
+    racha = racha_de_dias(hoy)
+    if racha >= 2:
+        obs.append(f"🔥 Llevas {racha} días seguidos cuidándome. ¡Gracias!")
+    elif hoy.isoformat() not in dias:
+        dias_sin_venir = (hoy - max(date.fromisoformat(d) for d in dias)).days
+        if dias_sin_venir >= 2:
+            obs.append(f"😿 Antes de esta visita pasaron {dias_sin_venir} días "
+                       f"sin que me cuidaras.")
+    return obs
+
+
+def mostrar_habitos():
+    n = len(historial_cuidados)
+    if n < MIN_EVENTOS:
+        print(f"🐱🔍 Michi: Todavía te estoy conociendo, amo... llevo {n} "
+              f"cuidado(s) anotado(s) y necesito al menos {MIN_EVENTOS} "
+              f"para notar patrones.")
+        return
+    print("\n📈🐱 LO QUE HE NOTADO DE TI, DUEÑO-AMO")
+    print(f"   (según tus últimos {n} cuidados)")
+    for linea in analizar_habitos():
+        print("   • " + linea)
+
+
+def anticipar_visita():
+    """
+    Si ya se conoce la franja habitual del dueño y estamos en ella,
+    Michi lo espera y lo dice (una vez por franja y por día).
+    """
+    if not mascota["viva"] or mascota["horas_sin_cuidado"] < 2:
+        return
+    franja = franja_habitual()
+    ahora = datetime.now()
+    if franja is None or franja_del_dia(ahora.hour) != franja:
+        return
+    clave = f"{ahora.date().isoformat()}-{franja}"
+    if ultimo_aviso["clave"] == clave:
+        return
+    ultimo_aviso["clave"] = clave
+    print(f"🕐🐾 Michi: Ya es la hora en que sueles venir {FRASE_FRANJA[franja]}... "
+          f"¡te estaba esperando, dueño-amo!")
+
+
+cargar_habitos()
+
 # ALIMENTAR
 def alimentar():
     if not mascota["viva"]:
         return
+    registrar_cuidado("alimentar")
     mascota["comida"] += 40
     mascota["salud"] += 5
     mascota["horas_sin_cuidado"] = 0
@@ -232,6 +449,7 @@ def alimentar():
 def dar_carino():
     if not mascota["viva"]:
         return
+    registrar_cuidado("dar_carino")
     mascota["felicidad"] += 25
     mascota["horas_sin_carino"] = 0
     mascota["horas_sin_cuidado"] = 0
@@ -251,6 +469,7 @@ def jugar():
     if mascota["energia"] < 20:
         print("😴💤 Michi: Quiero jugar... pero estoy demasiado cansadito :(")
         return
+    registrar_cuidado("jugar")
     mascota["felicidad"] += 15
     mascota["energia"] -= 20
     mascota["comida"] -= 5
@@ -270,6 +489,7 @@ def jugar():
 def descansar():
     if not mascota["viva"]:
         return
+    registrar_cuidado("descansar")
     mascota["energia"] += 40
     mascota["horas_sin_cuidado"] = 0
     mascota["energia"] = min(100, mascota["energia"])
@@ -868,6 +1088,13 @@ def conversar(mensaje):
         if contiene_alguna(mensaje, [frase_aprendida]):
             print(f"🐱💬 Michi: {respuesta_aprendida}")
             return
+    # PATRONES: lo que Michi ha notado de los hábitos del dueño
+    if contiene_alguna(mensaje, [
+        "patrones", "habitos", "que has notado", "como te cuido",
+        "como te he cuidado", "que sabes de mi", "como soy como dueno"
+    ]):
+        mostrar_habitos()
+        return
     # CONOCIMIENTOS DE INTELIGENCIA ARTIFICIAL
     respuesta_ia = responder_ia(mensaje)
     if respuesta_ia is not None:
@@ -1070,6 +1297,7 @@ def ciclo_agente():
             decision = seleccionar_accion_por_metas(percepcion)
             print("\n\n⏰🐾 Ha pasado una hora para Michi...")
             actuar(decision)
+            anticipar_visita()
 # PROGRAMA DE CONSOLA (solo corre si se ejecuta este archivo directamente)
 #
 # Se protege con "if __name__ == '__main__':" para que este archivo se
@@ -1091,6 +1319,7 @@ def ejecutar_menu_consola():
     print("  Tú: Te quiero")
     print("  Tú: ¿Cómo estás?")
     print("  Tú: aprende chido significa felicitacion   (¡enséñale palabras!)")
+    print("  Tú: ¿qué patrones has notado en mí?")
     print("\nEscribe 'menu' cuando quieras ver las opciones.\n")
     while mascota["viva"]:
         print("\n¿Qué quieres hacer?")

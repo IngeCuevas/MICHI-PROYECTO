@@ -265,6 +265,7 @@ class VentanaMichi:
             ("❤️ Dar cariño", self._dar_carino),
             ("🎾 Jugar", self._jugar),
             ("😴 Dormir", self._descansar),
+            ("📈 Hábitos", self._habitos),
         ]
         for i, (texto, comando) in enumerate(acciones):
             btn = tk.Button(marco, text=texto, command=comando, **estilo_boton)
@@ -312,6 +313,9 @@ class VentanaMichi:
 
     def _descansar(self):
         fn.descansar()
+
+    def _habitos(self):
+        fn.mostrar_habitos()
 
     def _hablar(self):
         texto = self.entrada.get().strip()
