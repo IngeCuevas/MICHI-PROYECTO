@@ -1,0 +1,23 @@
+{
+  "palabras": {
+    "saludo": [
+      "saluditos"
+    ],
+    "estado": [],
+    "jugar": [],
+    "comida": [
+      "panqueque"
+    ],
+    "carino": [],
+    "te_quiero": [],
+    "triste": [],
+    "dormir": [],
+    "regano": [],
+    "felicitacion": [
+      "chido"
+    ],
+    "gracias": [],
+    "despedida": []
+  },
+  "respuestas": {}
+}

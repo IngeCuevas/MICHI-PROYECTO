@@ -3,6 +3,8 @@ import threading
 import random
 import unicodedata
 import re
+import os
+import json
 from collections import deque
 from banco_palabras import CONOCIMIENTOS_IA
 # CONFIGURACIÓN
@@ -625,6 +627,224 @@ def responder_ia(mensaje):
             "pero todavía no sé responder esa pregunta."
         ]
     return random.choice(respuestas)
+# ===================================================================
+# APRENDIZAJE DE PALABRAS
+# ===================================================================
+# Michi puede ampliar su vocabulario de dos formas:
+#
+#  1) A la fuerza: el usuario le enseña con comandos.
+#       aprende chido significa felicitacion   (palabra -> categoría)
+#       aprende que onda => Todo tranqui, amo  (frase -> respuesta)
+#       olvida chido                           (borra lo aprendido)
+#       que has aprendido                      (lista lo aprendido)
+#
+#  2) Preguntando: cuando Michi no entiende una frase corta, en vez de
+#     rendirse pregunta "¿qué significa?" y la siguiente respuesta del
+#     usuario (una categoría) le enseña la palabra.
+#
+# Sigue siendo un sistema de reglas: Michi NO comprende el significado,
+# solo agrega la palabra a la lista de la categoría indicada. Lo aprendido
+# se guarda en vocabulario_michi.json para recordarlo entre sesiones.
+ARCHIVO_VOCABULARIO = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocabulario_michi.json"
+)
+
+# clave interna -> nombre que se le muestra al usuario
+NOMBRES_CATEGORIA = {
+    "saludo": "saludo",
+    "estado": "cómo estás",
+    "jugar": "jugar",
+    "comida": "comida",
+    "carino": "cariño",
+    "te_quiero": "te quiero",
+    "triste": "tristeza",
+    "dormir": "dormir",
+    "regano": "regaño",
+    "felicitacion": "felicitación",
+    "gracias": "gracias",
+    "despedida": "despedida",
+}
+
+# Nombres alternativos que el usuario puede escribir para cada categoría.
+_ALIAS_EXTRA = {
+    "saludo": ["saludar", "hola"],
+    "estado": ["como estas", "estado"],
+    "jugar": ["juego", "jugar"],
+    "comida": ["hambre", "comer"],
+    "carino": ["mimos", "afecto", "amor"],
+    "te_quiero": ["declaracion", "quiero"],
+    "triste": ["triste"],
+    "dormir": ["descansar", "sueno", "siesta"],
+    "regano": ["reprimenda"],
+    "felicitacion": ["felicitar", "elogio"],
+    "gracias": ["agradecer"],
+    "despedida": ["adios", "bye"],
+}
+ALIAS_CATEGORIA = {}
+for _clave, _nombre in NOMBRES_CATEGORIA.items():
+    for _alias in [_clave.replace("_", " "), _nombre] + _ALIAS_EXTRA.get(_clave, []):
+        ALIAS_CATEGORIA[normalizar_texto(_alias)] = _clave
+
+vocabulario = {
+    "palabras": {clave: [] for clave in NOMBRES_CATEGORIA},
+    "respuestas": {},
+}
+# Frase corta que Michi no entendió y sobre la que espera una categoría.
+pendiente_aprender = {"frase": None}
+
+
+def guardar_vocabulario():
+    try:
+        with open(ARCHIVO_VOCABULARIO, "w", encoding="utf-8") as archivo:
+            json.dump(vocabulario, archivo, ensure_ascii=False, indent=2)
+    except OSError:
+        print("🐱⚠️ Michi: Aprendí eso, pero no pude guardarlo en el archivo.")
+
+
+def cargar_vocabulario():
+    if not os.path.exists(ARCHIVO_VOCABULARIO):
+        return
+    try:
+        with open(ARCHIVO_VOCABULARIO, encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        for clave, lista in datos.get("palabras", {}).items():
+            if clave in vocabulario["palabras"]:
+                vocabulario["palabras"][clave] = list(lista)
+        vocabulario["respuestas"] = dict(datos.get("respuestas", {}))
+    except (OSError, ValueError):
+        pass  # archivo dañado: Michi empieza sin vocabulario aprendido
+
+
+def coincide(mensaje, categoria, base):
+    """
+    True si el mensaje contiene alguna palabra base de la categoría
+    (las que ya venían escritas en el código) o alguna que Michi
+    haya aprendido para esa categoría.
+    """
+    for palabra in base:
+        if normalizar_texto(palabra) in mensaje:
+            return True
+    aprendidas = vocabulario["palabras"].get(categoria, [])
+    return bool(aprendidas) and contiene_alguna(mensaje, aprendidas)
+
+
+def limpiar_frase(texto):
+    return texto.strip().strip("\"'“”«»:.,;!¡?¿ ")
+
+
+def ensenar_palabra(frase, categoria):
+    frase = normalizar_texto(frase)
+    # Si la palabra estaba en otra categoría, se corrige (se mueve).
+    for lista in vocabulario["palabras"].values():
+        if frase in lista:
+            lista.remove(frase)
+    vocabulario["palabras"][categoria].append(frase)
+    guardar_vocabulario()
+    print(f"😸📖 Michi: ¡Aprendí! Ahora sé que «{frase}» tiene que ver con "
+          f"{NOMBRES_CATEGORIA[categoria]}.")
+
+
+def listar_categorias():
+    return ", ".join(NOMBRES_CATEGORIA.values())
+
+
+def procesar_aprendizaje(original, mensaje):
+    """
+    Maneja todo lo relacionado con aprender. Devuelve True si el mensaje
+    fue un asunto de aprendizaje (y por tanto ya se respondió), o False
+    para que conversar() lo procese normalmente.
+    """
+    # 1) Michi había preguntado "¿qué significa?" y espera una categoría.
+    if pendiente_aprender["frase"] is not None:
+        frase = pendiente_aprender["frase"]
+        pendiente_aprender["frase"] = None
+        if mensaje in ("no", "nada", "cancelar", "paso", "olvidalo"):
+            print("🐱🐾 Michi: Está bien, no aprendo nada por ahora.")
+            return True
+        categoria = ALIAS_CATEGORIA.get(limpiar_frase(mensaje))
+        if categoria:
+            ensenar_palabra(frase, categoria)
+            return True
+        # No era una categoría: se trata como un mensaje normal.
+        return False
+
+    # 2) aprende ...
+    if re.match(r"^aprende\b", mensaje):
+        cuerpo = re.sub(r"^\s*aprende\s*:?\s*", "", original, flags=re.IGNORECASE)
+        # 2a) frase => respuesta
+        if "=>" in cuerpo:
+            frase, respuesta = cuerpo.split("=>", 1)
+            frase = normalizar_texto(limpiar_frase(frase))
+            respuesta = respuesta.strip()
+            if frase and respuesta:
+                vocabulario["respuestas"][frase] = respuesta
+                guardar_vocabulario()
+                print(f"😸📖 Michi: ¡Listo! Cuando me digas «{frase}» te responderé eso.")
+                return True
+        # 2b) palabra significa categoría
+        coincidencia = re.match(
+            r"^(.+?)\s+(?:significa|quiere decir|es sinonimo de)\s+(.+)$",
+            normalizar_texto(cuerpo),
+        )
+        if coincidencia:
+            palabra = limpiar_frase(coincidencia.group(1))
+            categoria = ALIAS_CATEGORIA.get(limpiar_frase(coincidencia.group(2)))
+            if not palabra or len(palabra.split()) > 4:
+                print("🐱❓ Michi: Enséñame frases cortas, de máximo 4 palabras, por favor.")
+            elif categoria is None:
+                print("🐱❓ Michi: No conozco esa categoría. Las que sé son: "
+                      + listar_categorias() + ".")
+            else:
+                ensenar_palabra(palabra, categoria)
+            return True
+        print("🐱📖 Michi: Puedes enseñarme así:")
+        print("   • aprende <palabra> significa <categoría>")
+        print("   • aprende <frase> => <respuesta>")
+        print("   Categorías: " + listar_categorias() + ".")
+        return True
+
+    # 3) olvida ...
+    coincidencia = re.match(r"^(?:olvida|olvidate de|borra)\s+(.+)$", mensaje)
+    if coincidencia:
+        frase = limpiar_frase(coincidencia.group(1))
+        olvidada = False
+        for lista in vocabulario["palabras"].values():
+            if frase in lista:
+                lista.remove(frase)
+                olvidada = True
+        if frase in vocabulario["respuestas"]:
+            del vocabulario["respuestas"][frase]
+            olvidada = True
+        if olvidada:
+            guardar_vocabulario()
+            print(f"🐱💭 Michi: Ya olvidé «{frase}».")
+        else:
+            print(f"🐱❓ Michi: No tenía aprendida «{frase}».")
+        return True
+
+    # 4) ¿qué has aprendido?
+    if contiene_alguna(mensaje, [
+        "que has aprendido", "palabras aprendidas", "que palabras sabes",
+        "que palabras te he ensenado", "que te he ensenado"
+    ]):
+        hay_algo = False
+        print("🐱📖 Michi: Esto es lo que me has enseñado:")
+        for clave, lista in vocabulario["palabras"].items():
+            if lista:
+                hay_algo = True
+                print(f"   • {NOMBRES_CATEGORIA[clave]}: " + ", ".join(lista))
+        for frase, respuesta in vocabulario["respuestas"].items():
+            hay_algo = True
+            print(f"   • «{frase}» → {respuesta}")
+        if not hay_algo:
+            print("   Todavía nada... ¡enséñame algo, amo! (escribe: aprende)")
+        return True
+
+    return False
+
+
+cargar_vocabulario()
+
 # CONVERSACIÓN POR REFLEJOS
 def conversar(mensaje):
     """
@@ -638,15 +858,24 @@ def conversar(mensaje):
     último tema recordado (ver memoria_conversacion) para dar
     continuidad a preguntas de seguimiento sobre IA.
     """
+    original = mensaje
     mensaje = normalizar_texto(mensaje)
+    # APRENDIZAJE: comandos de enseñanza y respuesta a "¿qué significa?"
+    if procesar_aprendizaje(original, mensaje):
+        return
+    # FRASES ENSEÑADAS POR EL USUARIO (tienen prioridad sobre las reglas)
+    for frase_aprendida, respuesta_aprendida in vocabulario["respuestas"].items():
+        if contiene_alguna(mensaje, [frase_aprendida]):
+            print(f"🐱💬 Michi: {respuesta_aprendida}")
+            return
     # CONOCIMIENTOS DE INTELIGENCIA ARTIFICIAL
     respuesta_ia = responder_ia(mensaje)
     if respuesta_ia is not None:
         print(respuesta_ia)
         return
     # SALUDOS
-    if any(palabra in mensaje for palabra in ["hola", "holi", "buenos dias",
-                                               "buenas tardes", "buenas noches"]):
+    if coincide(mensaje, "saludo", ["hola", "holi", "buenos dias",
+                                    "buenas tardes", "buenas noches"]):
         respuestas = [
             "😸🐾 Michi: ¡Miauuuu! ¡Holaaaa, dueño-amo!",
             "🐱❤️ Michi: ¡Hola! Qué bueno verte otra vez.",
@@ -655,7 +884,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # ¿CÓMO ESTÁS?
-    elif any(frase in mensaje for frase in [
+    elif coincide(mensaje, "estado", [
         "como estas","como te sientes","estas bien","todo bien", "te sientes bien",
         "que tal", "te encuentras bien"
     ]):
@@ -670,7 +899,7 @@ def conversar(mensaje):
         else:
             print("😸❤️✨ Michi: ¡Estoy muy bien! ¡Más ahora que estás aquí!")
     # JUGAR
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "jugar", [
         "jugar","jugamos","juguemos","juego","pelota","convivir", "pasar tiempo"
     ]):
         if mascota["energia"] >= 60:
@@ -696,7 +925,7 @@ def conversar(mensaje):
             ]
         print(random.choice(respuestas))
     # COMIDA / HAMBRE
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "comida", [
         "hambre","comida","comer","alimento","croquetas","pollo", "hambriento"
     ]):
         if mascota["comida"] <= 20:
@@ -706,7 +935,7 @@ def conversar(mensaje):
         else:
             print("😸🐾 Michi: Estoy bien por ahora, mi pancita está contenta.")
     # CARIÑO
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "carino", [
         "carino","mimos","abrazo","acariciar","acaricio","amor", "afecto"
     ]):
         respuestas = [
@@ -716,7 +945,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # TE QUIERO
-    elif any(frase in mensaje for frase in [
+    elif coincide(mensaje, "te_quiero", [
         "te quiero","te amo","te adoro"
     ]):
         respuestas = [
@@ -726,7 +955,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # TRISTE
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "triste", [
         "triste","tristeza","llorar","llorando"
     ]):
         if mascota["felicidad"] <= 40:
@@ -734,7 +963,7 @@ def conversar(mensaje):
         else:
             print("😸❤️ Michi: Ahora no estoy triste. Estoy feliz de estar contigo.")
     # DORMIR / DESCANSAR
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "dormir", [
         "dormir","duerme","descansar","sueno","siesta", "agotado", "débil", "exhausto"
     ]):
         if mascota["energia"] <= 40:
@@ -742,7 +971,7 @@ def conversar(mensaje):
         else:
             print("😸⚡ Michi: Todavía tengo energía, dueño-amo. ¡No tengo sueño!")
     # NO / REGAÑO
-    elif any(frase in mensaje for frase in [
+    elif coincide(mensaje, "regano", [
         "no michi","michi no","portate bien","mal michi", "estuvo mal eso Michi", "Obedeceme"
     ]):
         respuestas = [
@@ -752,7 +981,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # FELICITACIONES
-    elif any(frase in mensaje for frase in [
+    elif coincide(mensaje, "felicitacion", [
         "bien hecho","muy bien","buen michi","eres bueno", "estoy orgulloso",
         "me haces muy feliz", "el mejor de todos"
     ]):
@@ -763,7 +992,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # GRACIAS
-    elif "gracias" in mensaje:
+    elif coincide(mensaje, "gracias", ["gracias"]):
         respuestas = [
             "😸❤️ Michi: ¡De nada, amo!",
             "🐱🐾 Michi: ¡Miauuu! Para eso estoy.",
@@ -771,7 +1000,7 @@ def conversar(mensaje):
         ]
         print(random.choice(respuestas))
     # DESPEDIDA
-    elif any(palabra in mensaje for palabra in [
+    elif coincide(mensaje, "despedida", [
         "adios","bye","nos vemos","hasta luego", "te veo luego", "me tengo que ir"
     ]):
         respuestas = [
@@ -782,6 +1011,12 @@ def conversar(mensaje):
         print(random.choice(respuestas))
     # NO ENTENDIÓ
     else:
+        # Si es una frase corta, Michi pregunta para aprenderla.
+        if 0 < len(mensaje.split()) <= 3:
+            pendiente_aprender["frase"] = mensaje
+            print(f"🐱❓ Michi: Miau... no conozco «{original.strip()}». ¿Me enseñas qué significa?")
+            print("   Respóndeme con una categoría (" + listar_categorias() + ") o escribe 'no'.")
+            return
         respuestas = [
             "🐱❓ Michi: Miau... no entendí muy bien.",
             "🤔🐾 Michi: ¿Me lo dices de otra manera?",
@@ -855,6 +1090,7 @@ def ejecutar_menu_consola():
     print("  Tú: Michi, ¿tienes hambre?")
     print("  Tú: Te quiero")
     print("  Tú: ¿Cómo estás?")
+    print("  Tú: aprende chido significa felicitacion   (¡enséñale palabras!)")
     print("\nEscribe 'menu' cuando quieras ver las opciones.\n")
     while mascota["viva"]:
         print("\n¿Qué quieres hacer?")

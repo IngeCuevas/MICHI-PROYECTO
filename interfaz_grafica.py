@@ -171,7 +171,8 @@ class VentanaMichi:
         # empieza a revisar la cola de mensajes.
         fn.iniciar_hilo_agente()
         self._log("🐱✨ ¡Bienvenido a tu mascota virtual Michi! ✨🐱")
-        self._log("Usa los botones o escríbele algo en el cuadro de abajo.\n")
+        self._log("Usa los botones o escríbele algo en el cuadro de abajo.")
+        self._log("💡 Enséñale: aprende chido significa felicitacion  |  aprende hola amo => ¡Hola!\n")
         self._refrescar()
         self._procesar_cola()
 
