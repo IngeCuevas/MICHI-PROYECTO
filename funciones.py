@@ -11,7 +11,7 @@ from banco_palabras import CONOCIMIENTOS_IA
 # CONFIGURACIÓN
 # Para pruebas:
 # 60 segundos reales = 1 hora para Michi
-SEGUNDOS_POR_HORA = 3600
+SEGUNDOS_POR_HORA = 10
 # ESTADO DE MICHI
 mascota = {
     "nombre": "Michi",
