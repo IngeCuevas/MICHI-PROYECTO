@@ -1,14 +1,17 @@
 {
   "palabras": {
     "saludo": [
-      "saluditos"
+      "saluditos",
+      "hello"
     ],
     "estado": [],
     "jugar": [],
     "comida": [
       "panqueque",
       "pezcado",
-      "jugo"
+      "jugo",
+      "toronja",
+      "helado"
     ],
     "carino": [],
     "te_quiero": [],

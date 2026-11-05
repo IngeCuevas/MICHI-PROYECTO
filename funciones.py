@@ -210,6 +210,10 @@ def actuar(accion):
     }
     if accion in mensajes:
         print(random.choice(mensajes[accion]))
+        # Si lo que dijo es una petición, recuerda de qué trataba para
+        # poder interpretar un "sí" o un "no" como respuesta a ella.
+        if accion in TEMA_DE_PREGUNTA:
+            recordar_pregunta(TEMA_DE_PREGUNTA[accion])
 # PASO DEL TIEMPO
 def pasar_una_hora():
     mascota["horas_sin_cuidado"] += 1
@@ -300,7 +304,7 @@ def guardar_habitos():
     try:
         with open(ARCHIVO_HABITOS, "w", encoding="utf-8") as archivo:
             json.dump({"eventos": historial_cuidados}, archivo,
-                    ensure_ascii=False, indent=1)
+                      ensure_ascii=False, indent=1)
     except OSError:
         pass  # si no se puede guardar, Michi sigue funcionando en memoria
 
@@ -399,18 +403,18 @@ def analizar_habitos(hoy=None):
     peor = max(e["espera"] for e in eventos)
     if espera_media <= 3:
         obs.append(f"💚 Eres muy atento: me atiendes tras {espera_media:.1f} horas "
-                f"de espera en promedio (la peor fue de {peor}).")
+                   f"de espera en promedio (la peor fue de {peor}).")
     elif espera_media <= 7:
         obs.append(f"💛 Me atiendes con regularidad: {espera_media:.1f} horas de espera "
-                f"en promedio (la peor fue de {peor}).")
+                   f"en promedio (la peor fue de {peor}).")
     else:
         obs.append(f"💔 Sueles dejarme esperando mucho: {espera_media:.1f} horas en "
-                f"promedio (la peor fue de {peor}).")
+                   f"promedio (la peor fue de {peor}).")
 
     # 4. CONSTANCIA: días distintos y rachas
     dias = {e["fecha"] for e in eventos}
     obs.append(f"📅 Me has cuidado en {len(dias)} día(s) distinto(s), "
-            f"unas {n / len(dias):.1f} veces por día.")
+               f"unas {n / len(dias):.1f} veces por día.")
     racha = racha_de_dias(hoy)
     if racha >= 2:
         obs.append(f"🔥 Llevas {racha} días seguidos cuidándome. ¡Gracias!")
@@ -418,7 +422,7 @@ def analizar_habitos(hoy=None):
         dias_sin_venir = (hoy - max(date.fromisoformat(d) for d in dias)).days
         if dias_sin_venir >= 2:
             obs.append(f"😿 Antes de esta visita pasaron {dias_sin_venir} días "
-                    f"sin que me cuidaras.")
+                       f"sin que me cuidaras.")
     return obs
 
 
@@ -426,8 +430,8 @@ def mostrar_habitos():
     n = len(historial_cuidados)
     if n < MIN_EVENTOS:
         print(f"🐱🔍 Michi: Todavía te estoy conociendo, amo... llevo {n} "
-            f"cuidado(s) anotado(s) y necesito al menos {MIN_EVENTOS} "
-            f"para notar patrones.")
+              f"cuidado(s) anotado(s) y necesito al menos {MIN_EVENTOS} "
+              f"para notar patrones.")
         return
     print("\n📈🐱 LO QUE HE NOTADO DE TI, DUEÑO-AMO")
     print(f"   (según tus últimos {n} cuidados)")
@@ -451,7 +455,7 @@ def anticipar_visita():
         return
     ultimo_aviso["clave"] = clave
     print(f"🕐🐾 Michi: Ya es la hora en que sueles venir {FRASE_FRANJA[franja]}... "
-        f"¡te estaba esperando, dueño-amo!")
+          f"¡te estaba esperando, dueño-amo!")
 
 
 cargar_habitos()
@@ -996,7 +1000,7 @@ def ensenar_palabra(frase, categoria):
     vocabulario["palabras"][categoria].append(frase)
     guardar_vocabulario()
     print(f"😸📖 Michi: ¡Aprendí! Ahora sé que «{frase}» tiene que ver con "
-        f"{NOMBRES_CATEGORIA[categoria]}.")
+          f"{NOMBRES_CATEGORIA[categoria]}.")
 
 
 def listar_categorias():
@@ -1048,7 +1052,7 @@ def procesar_aprendizaje(original, mensaje):
                 print("🐱❓ Michi: Enséñame frases cortas, de máximo 4 palabras, por favor.")
             elif categoria is None:
                 print("🐱❓ Michi: No conozco esa categoría. Las que sé son: "
-                    + listar_categorias() + ".")
+                      + listar_categorias() + ".")
             else:
                 ensenar_palabra(palabra, categoria)
             return True
@@ -1110,7 +1114,7 @@ cargar_vocabulario()
 ARCHIVO_PERFIL = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "perfil_michi.json"
 )
-perfil = {"nombre": None, "gustos": []}
+perfil = {"nombre": None, "gustos": [], "recuerdos": {}, "preguntados": {}}
 
 
 def guardar_perfil():
@@ -1129,6 +1133,14 @@ def cargar_perfil():
             datos = json.load(archivo)
         perfil["nombre"] = datos.get("nombre") or None
         perfil["gustos"] = [str(g) for g in datos.get("gustos", [])][-30:]
+        recuerdos = datos.get("recuerdos", {})
+        if isinstance(recuerdos, dict):
+            perfil["recuerdos"] = {k: v for k, v in recuerdos.items()
+                                   if isinstance(v, dict) and "texto" in v}
+        preguntados = datos.get("preguntados", {})
+        if isinstance(preguntados, dict):
+            perfil["preguntados"] = {k: float(v) for k, v in preguntados.items()
+                                     if isinstance(v, (int, float))}
     except (OSError, ValueError, AttributeError):
         pass
 
@@ -1153,7 +1165,7 @@ def procesar_perfil(original, mensaje):
 
     # "me llamo Ana" / "mi nombre es Ana" / "llámame Ana"
     m = re.search(r"\b(?:me llamo|mi nombre es|ll[aá]mame)\s+(.+?)[\s.!]*$",
-                original, flags=re.IGNORECASE)
+                  original, flags=re.IGNORECASE)
     if m:
         nombre = limpiar_frase(m.group(1))
         if not nombre or len(nombre.split()) > 3:
@@ -1192,6 +1204,11 @@ def procesar_perfil(original, mensaje):
             ]))
             return True
 
+    if contiene_alguna(ms, ["que recuerdas de mi", "que recuerdas sobre mi",
+                            "que te he contado", "que te he dicho"]):
+        mostrar_recuerdos()
+        return True
+
     if contiene_alguna(ms, ["que me gusta", "que cosas me gustan", "cuales son mis gustos",
                             "que sabes de mis gustos"]):
         if perfil["gustos"]:
@@ -1204,6 +1221,689 @@ def procesar_perfil(original, mensaje):
 
 
 cargar_perfil()
+
+
+# ===================================================================
+# AFIRMACIONES, NEGACIONES Y DUDAS
+# ===================================================================
+# Michi reconoce respuestas cortas como "sí", "claro", "no", "ahorita no",
+# "quizás"... y las interpreta según lo ÚLTIMO que él pidió o preguntó
+# (su "contexto"). Por ejemplo, si Michi dijo "¿me das comidita?" y tú
+# respondes "sí", Michi lo toma como aceptar y se alimenta. Si no hay
+# pregunta reciente, responde de forma general.
+# Además detecta negaciones dentro de frases ("no quiero jugar",
+# "no tengo hambre") para no confundirlas con "quiero jugar".
+AFIRMACIONES = {
+    "si", "sip", "sep", "simon", "claro", "claro que si", "por supuesto",
+    "por supuesto que si", "obvio", "obviamente", "dale", "va", "vale", "ok",
+    "okay", "okey", "aja", "sale", "andale", "de acuerdo", "correcto",
+    "exacto", "afirmativo", "seguro", "esta bien", "con gusto", "desde luego",
+    "cierto", "asi es", "yes", "yep", "yeah", "bueno", "si claro", "si quiero",
+    "quiero", "claro quiero", "vamos", "hecho", "me parece bien", "buena idea",
+    "yo tambien", "igualmente", "si si", "claro si", "si dale", "si va",
+}
+NEGACIONES = {
+    "no", "nop", "nope", "nel", "nones", "nah", "nunca", "jamas", "tampoco",
+    "negativo", "para nada", "ni hablar", "ni de broma", "de ninguna manera",
+    "claro que no", "por supuesto que no", "no quiero", "no puedo", "no tengo",
+    "ahora no", "ahorita no", "todavia no", "aun no", "mejor no", "ya no",
+    "no creo", "no por ahora", "no no", "yo tampoco", "hoy no", "ni modo",
+    "luego", "despues", "mas tarde", "al rato", "otro dia", "en otro momento",
+}
+DUDAS = {
+    "quiza", "quizas", "tal vez", "talvez", "a lo mejor", "puede ser", "no se",
+    "no lo se", "ni idea", "no tengo idea", "depende", "mas o menos", "hmm",
+    "mmm", "igual y",
+}
+
+# Lo que Michi pidió -> tema del que trata (para interpretar "sí"/"no").
+TEMA_DE_PREGUNTA = {
+    "COMIDA_URGENTE": "comida", "PEDIR_COMIDA": "comida",
+    "PEDIR_DESCANSO": "descanso",
+    "PEDIR_CARINO": "carino", "PEDIR_ATENCION": "carino", "ESTAR_TRISTE": "carino",
+    "QUERER_JUGAR": "jugar",
+    "PEDIR_CUIDADO": "cuidado",
+}
+VIGENCIA_PREGUNTA = 120      # segundos que una pregunta de Michi sigue "abierta"
+contexto_pregunta = {"tema": None, "hora": 0.0}
+
+
+def recordar_pregunta(tema):
+    contexto_pregunta["tema"] = tema
+    contexto_pregunta["hora"] = time.time()
+    contexto_pregunta["n"] = charla_estado["contador"]   # en qué mensaje se hizo
+
+
+def pregunta_vigente():
+    """Tema de la última pregunta de Michi si todavía está 'abierta', o None."""
+    tema = contexto_pregunta["tema"]
+    if tema and time.time() - contexto_pregunta["hora"] <= VIGENCIA_PREGUNTA:
+        return tema
+    return None
+
+
+def clasificar_respuesta_corta(mensaje):
+    """Devuelve 'si', 'no', 'duda' o None, solo para respuestas cortas."""
+    # "no michi" / "michi no" son regaños: los maneja su propia regla.
+    if re.search(r"\bno michi\b|\bmichi no\b", mensaje):
+        return None
+    texto = re.sub(r"\b(?:por favor|porfa|porfis|gracias|michi|amo|dueno|pues|ah|eh|oh)\b",
+                   " ", mensaje)
+    palabras = re.findall(r"[a-z0-9]+", texto)
+    if not palabras or len(palabras) > 5:
+        return None
+    frase = " ".join(palabras)
+    if frase in NEGACIONES:
+        return "no"
+    if frase in AFIRMACIONES:
+        return "si"
+    if frase in DUDAS:
+        return "duda"
+    return None
+
+
+def responder_si_no(mensaje):
+    """True si el mensaje era un sí / no / duda y Michi ya respondió."""
+    tipo = clasificar_respuesta_corta(mensaje)
+    if tipo is None:
+        return False
+    tema = pregunta_vigente()
+    contexto_pregunta["tema"] = None          # la pregunta ya se contestó
+
+    if tipo == "si":
+        if tema == "jugar":
+            print("🤩🎾 Michi: ¡Síííí! ¡Vamos a jugar!")
+            jugar()
+        elif tema == "comida":
+            print("😻🍗 Michi: ¡Yupiii! ¡Comidita!")
+            alimentar()
+        elif tema == "carino":
+            print("🥰💕 Michi: ¡Siii! Ven, mimos, mimos...")
+            dar_carino()
+        elif tema == "descanso":
+            print("😴💤 Michi: Gracias, amo... me voy a dormir un ratito. zzz...")
+            descansar()
+        elif tema == "cuidado":
+            print("🥺❤️ Michi: Gracias... ojalá me des comida o cariño pronto.")
+        else:
+            print(random.choice([
+                "😸🐾 Michi: ¡Miau! ¿Sí qué? Cuéntame más.",
+                "🐱❓ Michi: Me dices que sí... pero no te había preguntado nada :3",
+                "😸✨ Michi: ¡Qué bien! Me encanta cuando estás de acuerdo.",
+            ]))
+    elif tipo == "no":
+        if tema == "jugar":
+            print(random.choice([
+                "😿🎾 Michi: Aww... está bien, jugamos después.",
+                "🥺🐾 Michi: Bueno... aquí estaré por si cambias de opinión.",
+            ]))
+        elif tema == "comida":
+            if mascota["comida"] <= 50:
+                print("😭🍗 Michi: ¿Nooo? Pero tengo hambre... :(((")
+            else:
+                print("😸🍗 Michi: Está bien, aguanto un ratito más.")
+        elif tema == "carino":
+            print("🥺💔 Michi: Oh... bueno. Aquí estaré por si cambias de opinión.")
+        elif tema == "descanso":
+            print("😾💤 Michi: Pero tengo sueño... bueno, aguanto un poquito más.")
+        elif tema == "cuidado":
+            print("🥺😿 Michi: Ay... no me siento bien, pero está bien.")
+        else:
+            print(random.choice([
+                "😿🐾 Michi: ¿No? Bueno... está bien.",
+                "🐱👍 Michi: Entendido, amo.",
+                "🥺🐱 Michi: Ay... bueno, como tú digas.",
+            ]))
+    else:  # duda
+        if tema:
+            print("🐱🤔 Michi: Tómate tu tiempo... pero ojalá que sí 🥺")
+            recordar_pregunta(tema)            # la pregunta sigue abierta
+        else:
+            print("🤔🐾 Michi: ¿Quizás? Piénsalo con calma, yo espero aquí.")
+    return True
+
+
+# Temas que Michi reconoce dentro de una frase negada.
+TEMAS_NEGABLES = [
+    ("jugar", ["jugar", "jugamos", "juguemos", "juego", "pelota", "convivir", "pasar tiempo"]),
+    ("comida", ["hambre", "comida", "comer", "alimento", "croquetas", "pollo", "hambriento"]),
+    ("carino", ["carino", "mimos", "abrazo", "acariciar", "acaricio", "amor", "afecto"]),
+    ("dormir", ["dormir", "duerme", "descansar", "sueno", "siesta", "agotado", "exhausto"]),
+    ("triste", ["triste", "tristeza", "llorar", "llorando"]),
+    ("te_quiero", ["te quiero", "te amo", "te adoro"]),
+]
+
+
+def responder_negacion_con_tema(original, mensaje):
+    """
+    Detecta frases negadas sobre un tema ("no quiero jugar", "no tengo
+    hambre", "ya no estoy triste") para no responderlas como si fueran
+    afirmativas. Las preguntas ("¿no quieres jugar?") se dejan pasar.
+    """
+    if "?" in original or "¿" in original:
+        return False
+    if not re.search(r"\b(?:no|nunca|jamas|tampoco)\b", mensaje):
+        return False
+    if re.search(r"\bno michi\b|\bmichi no\b", mensaje):
+        return False                           # regaño: otra regla
+    contexto_pregunta["tema"] = None
+
+    if contiene_alguna(mensaje, ["no te vayas", "no te vallas", "no me dejes", "no me abandones"]):
+        print(random.choice([
+            "🥹❤️ Michi: ¡Me quedo contigo! No me voy a ningún lado.",
+            "😻🐾 Michi: Aquí estoy, aquí me quedo. ¡Miau!",
+        ]))
+        return True
+
+    if contiene_alguna(mensaje, ["no entiendo", "no comprendo", "no entendi"]):
+        print("🥺🐱 Michi: Perdón, a veces no me explico bien. ¿Probamos de otra manera?")
+        return True
+
+    tema_detectado = None
+    for tema, base in TEMAS_NEGABLES:
+        if coincide(mensaje, tema, base):
+            tema_detectado = tema
+            break
+    if tema_detectado is None:
+        return False
+
+    if tema_detectado == "jugar":
+        print(random.choice([
+            "😿🎾 Michi: Oh... está bien, no jugamos. Aquí estaré por si cambias de opinión.",
+            "🥺🐾 Michi: Entonces jugamos después, ¿sí?",
+        ]))
+    elif tema_detectado == "comida":
+        if mascota["comida"] <= 40:
+            print("🥺🍗 Michi: Ah... pues yo sí tengo hambre. ¿Me das un poquito?")
+            recordar_pregunta("comida")
+        else:
+            print("😸🐾 Michi: Entiendo, entonces nada de comida por ahora.")
+    elif tema_detectado == "carino":
+        print("🥺💔 Michi: Oh... bueno. Sin mimos entonces.")
+    elif tema_detectado == "dormir":
+        if mascota["energia"] <= 30:
+            print("🥱🐱 Michi: Pues yo sí tengo sueño... ¿me dejas dormir un ratito?")
+            recordar_pregunta("descanso")
+        else:
+            print("😸⚡ Michi: Entonces no dormimos. Aquí sigo despierto.")
+    elif tema_detectado == "triste":
+        print("😸✨ Michi: ¡Qué bueno que no estés triste! Me alegra.")
+    else:  # te_quiero
+        print("😿💔 Michi: ¿No me quieres? Miau... :(((")
+    return True
+
+
+# ===================================================================
+# CHARLAS CON HILO + RECUERDOS QUE MICHI RETOMA
+# ===================================================================
+# Michi puede iniciar una charla de varios turnos (un "árbol de diálogo"):
+# hace una pregunta, interpreta tu respuesta y continúa según lo que
+# dijiste. Lo importante que le cuentas se guarda como "recuerdo" en
+# perfil_michi.json y, un rato después, Michi lo retoma por su cuenta
+# ("antes me contaste que tuviste un mal día... ¿ya estás mejor?").
+#
+# Sigue siendo un sistema de reglas: todo el contenido está escrito de
+# antemano en CHARLAS. Para agregar un tema nuevo basta con añadir nodos.
+#
+# Tipos de nodo:
+#   "emocion"  -> clasifica la respuesta como bien / mal / regular.
+#   "si_no"    -> clasifica la respuesta como si / no / duda.
+#   "libre"    -> acepta cualquier texto, lo guarda y sigue.
+# En "ramas" cada opción es: (siguiente_nodo, [respuestas], contexto).
+# "contexto" deja abierta una pregunta de Michi para que un "sí" posterior
+# ejecute la acción (por ejemplo "carino" -> Michi recibe cariño).
+VIGENCIA_CHARLA = 180            # segundos antes de dar la charla por terminada
+COOLDOWN_TEMA = 1800             # no repetir el mismo tema en 30 minutos
+SEGUNDOS_ANTES_DE_RETOMAR = 300  # un recuerdo se retoma pasados 5 minutos
+PROB_INICIAR_CHARLA = 0.4        # probabilidad de que Michi inicie una charla
+MENSAJES_ENTRE_CHARLAS = 3       # mensajes mínimos entre una charla y la siguiente
+
+YO_POR_DEFECTO = [
+    "😸🐾 Michi: ¡Yo estoy muy bien, gracias por preguntar! Sigamos con lo tuyo.",
+]
+
+CHARLAS = {
+    # ---------------- tema: cómo te fue hoy ----------------
+    "dia": {
+        "tipo": "emocion",
+        "pregunta": ["🐱💭 Michi: Oye, ¿cómo te fue hoy?",
+                     "😸🐾 Michi: Cuéntame, ¿cómo va tu día?"],
+        "yo": ["😸 Michi: ¡El mío va genial! Más ahora que platico contigo. Pero cuéntame de ti."],
+        "ramas": {
+            "bien": ("dia_bien", ["😻✨ Michi: ¡Qué bueno, me alegra mucho!",
+                                  "😸🎉 Michi: ¡Miau! Eso me pone feliz."], None),
+            "mal": ("dia_mal", ["😿💔 Michi: Ay, lo siento mucho...",
+                                "🥺🐾 Michi: Uy... ven, aquí estoy contigo."], None),
+            "regular": ("dia_regular", ["🐱💭 Michi: Mmm, un día normalito."], None),
+        },
+        "defecto": "regular",
+    },
+    "dia_bien": {
+        "tipo": "libre", "guardar": "mejor_momento",
+        "pregunta": ["😸 Michi: ¿Y qué fue lo mejor de tu día?"],
+        "yo": ["😻 Michi: Lo mejor de mi día es que estás aquí. ¿Y el tuyo?"],
+        "respuesta": ["😻✨ Michi: «{texto}»... ¡qué bonito! Lo voy a recordar.",
+                      "😸🐾 Michi: ¡Wow, «{texto}»! Me encanta que me cuentes estas cosas."],
+        "cierre": ["🎾 Michi: ¿Jugamos un ratito para celebrar?"],
+        "contexto": "jugar",
+    },
+    "dia_mal": {
+        "tipo": "libre", "guardar": "motivo_mal_dia", "cierre_siempre": True,
+        "pregunta": ["🥺 Michi: ¿Qué pasó?"],
+        "yo": ["🐱 Michi: Yo estoy bien, ¡pero ahora me preocupas tú! ¿Qué pasó?"],
+        "respuesta": ["😿 Michi: «{texto}»... suena pesado. Gracias por contármelo."],
+        "cierre": ["🥺💕 Michi: ¿Quieres un poquito de cariño?"],
+        "contexto": "carino",
+    },
+    "dia_regular": {
+        "tipo": "si_no",
+        "pregunta": ["🐱❓ Michi: ¿Hay algo que te preocupe?"],
+        "yo": ["😸 Michi: Yo estoy tranquilo, soy un gato. ¿Y tú, hay algo que te preocupe?"],
+        "ramas": {
+            "si": ("preocupa", ["🥺 Michi: Ay..."], None),
+            "duda": ("preocupa", ["🐱 Michi: Si algo te da vueltas en la cabeza, puedes contármelo."], None),
+            "no": (None, ["😸 Michi: Bueno, a veces los días son así. ¡Seguro mañana será mejor!"], None),
+        },
+    },
+    "preocupa": {
+        "tipo": "libre", "guardar": "preocupacion", "cierre_siempre": True,
+        "pregunta": ["🥺 Michi: ¿Qué es lo que te preocupa?"],
+        "yo": ["🐱 Michi: A mí solo me preocupa quedarme sin croquetas. ¿Qué te preocupa a ti?"],
+        "respuesta": ["🥺💕 Michi: Gracias por confiarme eso. Aquí estoy contigo, siempre."],
+        "cierre": ["🥺💕 Michi: ¿Quieres un poquito de cariño?"],
+        "contexto": "carino",
+    },
+
+    # ---------------- tema: comida ----------------
+    "comida": {
+        "tipo": "si_no",
+        "pregunta": ["😸🍗 Michi: ¿Ya comiste hoy?"],
+        "yo": ["😋 Michi: ¡Yo siempre tengo hambre! Croquetas, croquetas... ¿Y tú ya comiste?"],
+        "ramas": {
+            "si": ("comida_que", ["😸 Michi: ¡Qué bueno, hay que cuidarse!"], None),
+            "no": (None, ["😿🍗 Michi: ¡Ay no! Ve a comer algo, ¿sí? Me preocupo por ti."], None),
+            "duda": (None, ["🐱 Michi: Acuérdate de comer algo rico, ¿sí?"], None),
+        },
+    },
+    "comida_que": {
+        "tipo": "libre", "guardar": "ultima_comida",
+        "pregunta": ["😋 Michi: ¿Y qué comiste?"],
+        "yo": ["😸🍗 Michi: Yo comería pollo todo el día. ¿Y tú qué comiste?"],
+        "respuesta": ["😻🍗 Michi: «{texto}»... ¡suena delicioso! Lo recordaré.",
+                      "😋 Michi: Mmm, «{texto}». ¡Qué rico!"],
+    },
+
+    # ---------------- tema: sueño ----------------
+    "sueno": {
+        "tipo": "si_no",
+        "pregunta": ["😴 Michi: ¿Dormiste bien anoche?"],
+        "yo": ["😸💤 Michi: ¡Yo duermo muchísimo! Soy un gato. ¿Y tú dormiste bien?"],
+        "ramas": {
+            "si": (None, ["😸💤 Michi: ¡Qué bueno! Dormir bien es súper importante."], None),
+            "no": ("sueno_mal", ["😿 Michi: Ay, qué mal..."], None),
+            "duda": (None, ["🐱 Michi: A veces cuesta saberlo, ¿verdad?"], None),
+        },
+    },
+    "sueno_mal": {
+        "tipo": "libre", "guardar": "sueno",
+        "pregunta": ["🥱 Michi: ¿Cuántas horas dormiste, más o menos?"],
+        "yo": ["😸💤 Michi: Yo duermo como 16 horas. ¿Y tú cuántas dormiste?"],
+        "respuesta": ["😿💤 Michi: Gracias por contarme. Intenta descansar hoy, ¿sí? "
+                      "A mí me encantan las siestas."],
+    },
+
+    # ---------------- tema: pasatiempos ----------------
+    "pasatiempo": {
+        "tipo": "libre", "guardar": "gusto",
+        "pregunta": ["😸 Michi: ¿Qué te gusta hacer en tu tiempo libre?"],
+        "yo": ["😸🎾 Michi: A mí me gusta jugar con la pelota y dormir siestas. ¿Y a ti?"],
+        "respuesta": ["😸📝 Michi: «{texto}»... ¡suena genial! Lo guardo en mi cabecita.",
+                      "😻🐾 Michi: ¡Qué bien! «{texto}». Me gusta conocer tus cosas."],
+    },
+
+    # ---------------- tema: tu nombre ----------------
+    "nombre": {
+        "tipo": "libre", "guardar": "nombre",
+        "pregunta": ["😸❓ Michi: Por cierto... ¡todavía no sé cómo te llamas! ¿Cómo te digo?"],
+        "yo": ["😸 Michi: Yo soy Michi, ¡el gato más guapo del mundo! ¿Y tú cómo te llamas?"],
+        "respuesta": ["😻✨ Michi: ¡Mucho gusto, {texto}! Ya me lo aprendí."],
+    },
+
+    # ---------------- seguimientos (Michi retoma un recuerdo) ----------------
+    "seg_mal": {
+        "tipo": "si_no",
+        "pregunta": ["🐱💭 Michi: Oye, antes me contaste que tuviste un mal día («{texto}»). "
+                     "¿Ya estás mejor?"],
+        "ramas": {
+            "si": (None, ["😻✨ Michi: ¡Me alegra muchísimo!"], None),
+            "no": (None, ["🥺💕 Michi: Ay... ven. ¿Quieres un poquito de cariño?"], "carino"),
+            "duda": (None, ["🐱 Michi: Poco a poco, ¿sí? Aquí estoy."], None),
+        },
+    },
+    "seg_mejor": {
+        "tipo": "si_no",
+        "pregunta": ["😸💭 Michi: Me quedé pensando en que lo mejor de tu día fue «{texto}». "
+                     "¿Te pasó algo así de bueno otra vez?"],
+        "ramas": {
+            "si": (None, ["😻 Michi: ¡Genial! Los buenos momentos hay que coleccionarlos."], None),
+            "no": (None, ["😸 Michi: Ya vendrán más, ¡seguro!"], None),
+            "duda": (None, ["🐱 Michi: Bueno, ¡ojalá que sí!"], None),
+        },
+    },
+    "seg_preocupa": {
+        "tipo": "si_no",
+        "pregunta": ["🐱💭 Michi: Oye, antes me dijiste que te preocupaba «{texto}». "
+                     "¿Ya se arregló algo?"],
+        "ramas": {
+            "si": (None, ["😻 Michi: ¡Qué alivio!"], None),
+            "no": (None, ["🥺💕 Michi: Ánimo... estoy contigo. ¿Quieres un poquito de cariño?"], "carino"),
+            "duda": (None, ["🐱 Michi: Ve con calma, un paso a la vez."], None),
+        },
+    },
+    "seg_comida": {
+        "tipo": "si_no",
+        "pregunta": ["😋 Michi: Antes me dijiste que comiste «{texto}». ¿Ya volviste a comer algo?"],
+        "ramas": {
+            "si": (None, ["😸 Michi: ¡Bien! Hay que cuidarse."], None),
+            "no": (None, ["😿🍗 Michi: ¡No te olvides de comer, eh!"], None),
+            "duda": (None, ["🐱 Michi: Acuérdate de comer algo, ¿sí?"], None),
+        },
+    },
+    "seg_gusto": {
+        "tipo": "si_no",
+        "pregunta": ["😸💭 Michi: Me acuerdo que te gusta «{texto}». ¿Pudiste disfrutarlo hoy?"],
+        "ramas": {
+            "si": (None, ["😻 Michi: ¡Qué bien! Me alegra."], None),
+            "no": (None, ["😿 Michi: Ay... ojalá puedas pronto."], None),
+            "duda": (None, ["🐱 Michi: Bueno, ¡que lo disfrutes cuando puedas!"], None),
+        },
+    },
+}
+
+# Recuerdo guardado -> nodo con el que Michi lo retoma.
+SEGUIMIENTOS = {
+    "motivo_mal_dia": "seg_mal",
+    "mejor_momento": "seg_mejor",
+    "preocupacion": "seg_preocupa",
+    "ultima_comida": "seg_comida",
+}
+TEMAS_NUEVOS = ("dia", "comida", "sueno", "pasatiempo")
+ETIQUETAS_RECUERDO = {
+    "mejor_momento": "Lo mejor de tu día",
+    "motivo_mal_dia": "Un mal día que tuviste",
+    "preocupacion": "Algo que te preocupaba",
+    "ultima_comida": "Lo último que comiste",
+    "sueno": "Sobre tu sueño",
+}
+
+# Estado de la charla actual.
+charla = {"nodo": None, "datos": {}, "hora": 0.0, "fallos": 0}
+charla_estado = {"contador": 0, "ultimo_fin": 0}
+
+FRASES_PEDIR_CHARLA = {
+    "hablemos", "platiquemos", "charlemos", "conversemos", "platicame",
+    "platica", "charla", "habla", "platicamos", "quiero hablar",
+    "quiero platicar", "quiero charlar", "vamos a platicar", "vamos a hablar",
+    "vamos a charlar", "tengo ganas de platicar", "de que hablamos",
+    "de que quieres hablar", "dime algo", "cuentame algo", "preguntame algo",
+    "preguntame", "hazme preguntas",
+}
+SALIDAS_DE_CHARLA = ["adios", "bye", "nos vemos", "hasta luego", "me voy", "me tengo que ir",
+                     "cambiemos de tema", "dejemos de hablar", "ya no quiero hablar", "basta"]
+NO_QUIERE_CONTAR = {
+    "nada", "nada importante", "olvidalo", "ya no importa", "luego te cuento",
+    "no quiero hablar de eso", "no quiero contarte", "prefiero no decir",
+    "ninguno", "ninguna",
+}
+
+BIEN = {"bien", "genial", "excelente", "chido", "padre", "increible", "super", "feliz",
+        "contento", "contenta", "buenisimo", "mejor", "maravilloso", "perfecto",
+        "bonito", "divertido", "productivo", "fantastico", "estupendo", "bueno", "buen"}
+MAL = {"mal", "horrible", "pesimo", "terrible", "cansado", "cansada", "estresado",
+       "estresada", "triste", "agotado", "agotada", "fatal", "pesado", "pesada",
+       "feo", "fea", "fatigado", "harto", "harta", "enfermo", "enferma", "mala",
+       "malo", "deprimido", "ansioso", "ansiosa", "agobiado", "agobiada", "caotico"}
+REGULAR_FRASES = ["mas o menos", "ni bien ni mal", "asi asi", "ahi va", "normalito",
+                  "normal", "regular", "pasable", "maso", "tranquilo", "tranquila"]
+
+
+def clasificar_emocion(mensaje):
+    """Devuelve 'bien', 'mal', 'regular' o None según cómo describe su día."""
+    palabras = re.findall(r"[a-z0-9]+", mensaje)
+    texto = " ".join(palabras)
+    if any(f in texto for f in REGULAR_FRASES):
+        return "regular"
+    hay_negacion = "no" in palabras or "nada" in palabras or "nunca" in palabras
+    bien = bool(set(palabras) & BIEN)
+    mal = bool(set(palabras) & MAL)
+    if hay_negacion and bien and not mal:
+        return "regular"                    # "no muy bien", "no tan bien"
+    if hay_negacion and mal and not bien:
+        return "regular"                    # "nada mal", "no estuvo mal"
+    if mal:
+        return "mal"
+    if bien:
+        return "bien"
+    return None
+
+
+def clasificar_si_no_flexible(mensaje):
+    """Como clasificar_respuesta_corta, pero acepta 'sí, pero poquito' o 'no, para nada'."""
+    exacto = clasificar_respuesta_corta(mensaje)
+    if exacto:
+        return exacto
+    if re.search(r"\bno michi\b|\bmichi no\b", mensaje):
+        return None
+    palabras = re.findall(r"[a-z0-9]+", mensaje)
+    if not palabras:
+        return None
+    if palabras[0] in ("si", "claro", "aja", "sip", "simon", "obvio", "dale", "yes"):
+        return "si"
+    if palabras[0] in ("no", "nop", "nel", "nunca", "jamas", "tampoco"):
+        return "no"
+    if palabras[0] in ("quiza", "quizas", "talvez") or mensaje.startswith("tal vez"):
+        return "duda"
+    return None
+
+
+def limpiar_respuesta_libre(original):
+    """'pues comí tacos' -> 'tacos' (quita arranques comunes para repetirlo bien)."""
+    base = limpiar_frase(original)[:80]
+    texto = base
+    patron = (r"^(?:me gustan|me gusta|me encantan|me encanta|lo mejor fue|pues|yo|me|"
+              r"comi|comí|desayune|desayuné|almorce|almorcé|cene|cené|fue|fueron|"
+              r"tome|tomé|hoy|ahorita)\s+")
+    anterior = None
+    while anterior != texto:
+        anterior = texto
+        texto = re.sub(patron, "", texto, flags=re.IGNORECASE)
+    return texto.strip() or base
+
+
+def pide_charla(mensaje):
+    texto = re.sub(r"\b(?:michi|porfa|por favor|un rato|un poco|tantito|ahora|conmigo|ya|pues)\b",
+                   " ", mensaje)
+    return " ".join(re.findall(r"[a-z0-9]+", texto)) in FRASES_PEDIR_CHARLA
+
+
+def en_cooldown(tema):
+    return time.time() - perfil["preguntados"].get(tema, 0) < COOLDOWN_TEMA
+
+
+def registrar_recuerdo(clave, texto):
+    perfil["recuerdos"][clave] = {"texto": texto, "ts": time.time(), "retomado": False}
+    guardar_perfil()
+
+
+def terminar_charla():
+    charla["nodo"] = None
+    charla_estado["ultimo_fin"] = charla_estado["contador"]
+
+
+def hacer_pregunta(nodo_id, datos):
+    charla.update(nodo=nodo_id, datos=datos, hora=time.time(), fallos=0)
+    plantilla = random.choice(CHARLAS[nodo_id]["pregunta"])
+    print(plantilla.format(texto=datos.get("texto", "")))
+
+
+def avanzar_charla(siguiente, datos, cierre=None, contexto=None):
+    """Pasa al siguiente nodo, o cierra la charla (con pregunta final opcional)."""
+    if siguiente:
+        hacer_pregunta(siguiente, datos)
+        return
+    terminar_charla()
+    if cierre:
+        print(random.choice(cierre))
+    if contexto:
+        recordar_pregunta(contexto)
+
+
+def elegir_inicio(forzar=False):
+    """Decide de qué hablar: primero retoma recuerdos, luego temas nuevos."""
+    ahora = time.time()
+    pendientes = [(k, r) for k, r in perfil["recuerdos"].items()
+                  if k in SEGUIMIENTOS and not r.get("retomado")
+                  and ahora - r.get("ts", 0) >= SEGUNDOS_ANTES_DE_RETOMAR]
+    if pendientes:
+        clave, recuerdo = random.choice(pendientes)
+        recuerdo["retomado"] = True
+        guardar_perfil()
+        return SEGUIMIENTOS[clave], {"texto": recuerdo["texto"]}
+    if not perfil["nombre"] and (forzar or not en_cooldown("nombre")):
+        return "nombre", {"texto": ""}
+    opciones = [(t, {"texto": ""}) for t in TEMAS_NUEVOS if forzar or not en_cooldown(t)]
+    if perfil["gustos"] and (forzar or not en_cooldown("seg_gusto")):
+        opciones.append(("seg_gusto", {"texto": random.choice(perfil["gustos"])}))
+    return random.choice(opciones) if opciones else None
+
+
+def iniciar_charla(forzar=False):
+    elegido = elegir_inicio(forzar)
+    if elegido is None:
+        return False
+    nodo_id, datos = elegido
+    perfil["preguntados"][nodo_id] = time.time()
+    guardar_perfil()
+    hacer_pregunta(nodo_id, datos)
+    return True
+
+
+def responder_pide_charla(mensaje):
+    if not pide_charla(mensaje):
+        return False
+    print(random.choice(["😸🐾 Michi: ¡Siii, platiquemos!",
+                         "😻✨ Michi: ¡Me encanta platicar contigo!"]))
+    iniciar_charla(forzar=True)
+    return True
+
+
+def sale_de_charla(original, mensaje):
+    """True si el mensaje no es una respuesta a la charla (pregunta, despedida, comando)."""
+    if "?" in original or "¿" in original:
+        return True
+    if mensaje.startswith(("aprende", "olvida", "borra")):
+        return True
+    if re.search(r"\bno michi\b|\bmichi no\b|\bmal michi\b", mensaje):
+        return True
+    if pide_charla(mensaje):
+        return True
+    return contiene_alguna(mensaje, SALIDAS_DE_CHARLA)
+
+
+def continuar_charla(original, mensaje):
+    """True si el mensaje era la respuesta a la charla en curso."""
+    nodo_id = charla["nodo"]
+    if not nodo_id:
+        return False
+    if time.time() - charla["hora"] > VIGENCIA_CHARLA:
+        terminar_charla()
+        return False
+    nodo = CHARLAS[nodo_id]
+    datos = charla["datos"]
+
+    # "¿y tú?": Michi contesta lo suyo y sigue esperando la respuesta.
+    if contiene_alguna(mensaje, ["y tu", "y tu que", "y a ti", "tu que", "y tu como"]):
+        print(random.choice(nodo.get("yo", YO_POR_DEFECTO)))
+        charla["hora"] = time.time()
+        return True
+    if sale_de_charla(original, mensaje):
+        terminar_charla()
+        return False
+
+    # El dueño no quiere contar / no sabe: Michi lo respeta.
+    if (mensaje in NO_QUIERE_CONTAR
+            or (nodo["tipo"] == "libre" and clasificar_respuesta_corta(mensaje) in ("no", "duda"))):
+        print("🐱💕 Michi: Está bien, no pasa nada. Aquí estaré cuando quieras contarme.")
+        if nodo.get("cierre_siempre"):
+            avanzar_charla(None, datos, nodo.get("cierre"), nodo.get("contexto"))
+        else:
+            terminar_charla()
+        return True
+
+    if nodo["tipo"] == "libre":
+        guardar = nodo.get("guardar")
+        if guardar == "nombre":
+            m = re.search(r"\b(?:me llamo|mi nombre es|ll[aá]mame|soy)\s+(.+?)[\s.!]*$",
+                          original, flags=re.IGNORECASE)
+            nombre = limpiar_frase(m.group(1) if m else original)
+            if not nombre or len(nombre.split()) > 3:
+                charla["fallos"] += 1
+                if charla["fallos"] >= 2:
+                    terminar_charla()
+                    return False
+                print("🐱❓ Michi: Miau... dime solo tu nombre, de máximo 3 palabras.")
+                return True
+            perfil["nombre"] = " ".join(p[:1].upper() + p[1:] for p in nombre.split())
+            guardar_perfil()
+            datos["texto"] = perfil["nombre"]
+        else:
+            datos["texto"] = limpiar_respuesta_libre(original)
+            if guardar == "gusto":
+                if datos["texto"] not in perfil["gustos"]:
+                    perfil["gustos"].append(datos["texto"])
+                    del perfil["gustos"][:-30]
+                    guardar_perfil()
+            elif guardar:
+                registrar_recuerdo(guardar, datos["texto"])
+        print(random.choice(nodo["respuesta"]).format(texto=datos["texto"]))
+        avanzar_charla(nodo.get("siguiente"), datos, nodo.get("cierre"), nodo.get("contexto"))
+        return True
+
+    # Nodos "emocion" y "si_no": se clasifica la respuesta y se sigue la rama.
+    if nodo["tipo"] == "emocion":
+        clave = clasificar_emocion(mensaje)
+    else:
+        clave = clasificar_si_no_flexible(mensaje)
+    if clave not in nodo["ramas"]:
+        clave = nodo.get("defecto")
+    if clave is None:
+        charla["fallos"] += 1
+        if charla["fallos"] >= 2 or len(mensaje.split()) > 8:
+            terminar_charla()
+            return False
+        print("🐱❓ Michi: Miau, ¿eso fue un sí o un no?")
+        return True
+    siguiente, respuestas, contexto = nodo["ramas"][clave]
+    print(random.choice(respuestas).format(texto=datos.get("texto", "")))
+    avanzar_charla(siguiente, datos, None, contexto)
+    return True
+
+
+def mostrar_recuerdos():
+    """Lo que Michi recuerda del dueño (comando: '¿qué recuerdas de mí?')."""
+    lineas = []
+    if perfil["nombre"]:
+        lineas.append(f"• Te llamas {perfil['nombre']}.")
+    if perfil["gustos"]:
+        lineas.append("• Te gusta: " + ", ".join(perfil["gustos"]) + ".")
+    for clave, etiqueta in ETIQUETAS_RECUERDO.items():
+        if clave in perfil["recuerdos"]:
+            lineas.append(f"• {etiqueta}: «{perfil['recuerdos'][clave]['texto']}».")
+    if not lineas:
+        print("🐱❓ Michi: Todavía no me has contado mucho de ti. "
+              "Di «platiquemos» y te hago preguntas.")
+        return
+    print("😸📖 Michi: Esto es lo que recuerdo de ti:\n" + "\n".join(lineas))
 
 
 # CONVERSACIÓN POR REFLEJOS
@@ -1234,6 +1934,15 @@ def _conversar_reglas(mensaje):
         if contiene_alguna(mensaje, [frase_aprendida]):
             print(f"🐱💬 Michi: {respuesta_aprendida}")
             return
+    # CHARLA EN CURSO: si Michi te hizo una pregunta de su charla, esto es la respuesta
+    if continuar_charla(original, mensaje):
+        return
+    # "platiquemos", "hablemos"...: Michi inicia una charla
+    if responder_pide_charla(mensaje):
+        return
+    # SÍ / NO / QUIZÁS (respuestas cortas, según lo último que Michi pidió)
+    if responder_si_no(mensaje):
+        return
     # PATRONES: lo que Michi ha notado de los hábitos del dueño
     if contiene_alguna(mensaje, [
         "patrones", "habitos", "que has notado", "como te cuido",
@@ -1246,6 +1955,9 @@ def _conversar_reglas(mensaje):
     if respuesta_ia is not None:
         print(respuesta_ia)
         return
+    # NEGACIONES DENTRO DE UNA FRASE ("no quiero jugar", "no tengo hambre")
+    if responder_negacion_con_tema(original, mensaje):
+        return
     # SALUDOS
     if coincide(mensaje, "saludo", ["hola", "holi", "buenos dias",
                                     "buenas tardes", "buenas noches"]):
@@ -1256,7 +1968,10 @@ def _conversar_reglas(mensaje):
             "😻✨ Michi: ¡Te estaba esperando!",
             "😸🎾 Michi: ¡Holaaa! ¿Jugamos?"
         ]
-        print(random.choice(respuestas))
+        elegida = random.choice(respuestas)
+        print(elegida)
+        if "¿Jugamos?" in elegida:
+            recordar_pregunta("jugar")
     # ¿CÓMO ESTÁS?
     elif coincide(mensaje, "estado", [
         "como estas","como te sientes","estas bien","todo bien", "te sientes bien",
@@ -1415,10 +2130,21 @@ def conversar(mensaje):
         return
     if normalizar_texto(mensaje).startswith(("aprende", "olvida", "borra")):
         return
+    charla_estado["contador"] += 1
     if random.random() < PROB_COMENTARIO_ESTADO:
         metas = definir_metas(percibir())
         if metas and metas[0][1] >= 5:      # solo necesidades importantes
             actuar(metas[0][2])
+            return
+    # Si no hay nada urgente, a veces Michi inicia una charla con hilo.
+    # Una pregunta que el dueño ignoró durante varios mensajes ya no cuenta como abierta.
+    pregunta_abierta = (pregunta_vigente() is not None and
+                        charla_estado["contador"] - contexto_pregunta.get("n", 0) < MENSAJES_ENTRE_CHARLAS)
+    if (charla["nodo"] is None and not pregunta_abierta
+            and charla_estado["contador"] - charla_estado["ultimo_fin"] >= MENSAJES_ENTRE_CHARLAS
+            and random.random() < PROB_INICIAR_CHARLA):
+        contexto_pregunta["tema"] = None
+        iniciar_charla()
 
 
 # ESTADÍSTICAS VISUALES DE MICHI

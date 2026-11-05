@@ -2,37 +2,35 @@
 INTERFAZ GRÁFICA DE MICHI (tkinter)
 =====================================================
 
-Este archivo NO reimplementa la lógica del agente: importa y reutiliza
-directamente las funciones de funciones.py (que a su vez usa el banco
-de palabras de banco_palabras.py). Aquí solo se construye una ventana
-gráfica que:
+Esta ventana NO reimplementa la lógica del agente: importa y reutiliza
+las funciones de funciones.py (que a su vez usa banco_palabras.py).
 
-  1. Muestra un "avatar" de Michi (un emoji grande) que cambia según
-     su estado (salud, felicidad, comida, energía).
-  2. Muestra barras de progreso con sus estadísticas.
-  3. Muestra la meta activa que el agente basado en metas está
-     persiguiendo en este momento.
-  4. Ofrece botones para alimentar, dar cariño, jugar y hacer dormir
-     a Michi, además de un cuadro de texto para conversar con él.
-  5. Mantiene, igual que en consola, un hilo en segundo plano que hace
-     avanzar el tiempo automáticamente (ciclo_agente).
+Qué muestra:
+  * Michi dibujado con formas vectoriales (no es un emoji): sus ojos y su
+    boca cambian según su estado y parpadea de vez en cuando.
+  * Barras de salud, felicidad, comida y energía que se animan al cambiar.
+  * La meta activa del agente basado en metas.
+  * Un chat con burbujas: las tuyas a la derecha, las de Michi a la izquierda.
+  * Botones de respuesta rápida (Sí / No / Bien / Mal...) cuando Michi te
+    hace una pregunta.
+  * Botones de acción: alimentar, dar cariño, jugar, dormir, hábitos y
+    platicar (inicia una charla con Michi).
 
-Como las funciones originales usan print() para "hablar", en vez de
-reescribirlas, aquí se redirige la salida estándar (sys.stdout) hacia
-una cola (queue.Queue). La ventana revisa esa cola varias veces por
-segundo y muestra los mensajes nuevos en el cuadro de conversación.
-Esto funciona sin importar si el print() viene del hilo en segundo
-plano o de una acción del usuario.
+Como las funciones originales usan print() para "hablar", se redirige
+sys.stdout hacia una cola (queue.Queue). La ventana lee esa cola varias
+veces por segundo, separa el texto en líneas y las muestra como burbujas.
+Funciona igual si el print() viene del hilo del agente o de un botón.
 
-Requiere: Python con tkinter (viene incluido en la instalación
-estándar de Python en Windows/Mac; en Linux a veces hay que instalar
-el paquete "python3-tk").
+Requiere Python con tkinter (incluido en Windows y macOS; en Linux a
+veces hay que instalar el paquete "python3-tk"). No usa librerías externas.
 """
 
 import sys
+import time
 import queue
+import random
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import font as tkfont
 
 import funciones as fn
 
@@ -41,12 +39,7 @@ import funciones as fn
 # REDIRECCIÓN DE LA SALIDA (para reutilizar las funciones tal cual)
 # =====================================================================
 class ColaDeSalida:
-    """
-    Objeto que imita a un archivo (tiene .write y .flush) pero en vez
-    de imprimir en la consola, guarda el texto en una cola. Así, todos
-    los print() de funciones.py (vengan del hilo del agente o de un
-    botón) terminan en un solo lugar que la ventana puede leer.
-    """
+    """Imita a un archivo (.write / .flush) pero guarda el texto en una cola."""
 
     def __init__(self):
         self.cola = queue.Queue()
@@ -61,52 +54,108 @@ class ColaDeSalida:
 
 
 cola_salida = ColaDeSalida()
-sys.stdout = cola_salida
+
+
+def redirigir_salida():
+    sys.stdout = cola_salida
 
 
 # =====================================================================
-# AVATAR DE MICHI SEGÚN SU ESTADO
+# DISEÑO: colores y tipografía
 # =====================================================================
-def obtener_avatar():
-    """
-    Devuelve un emoji grande que representa el estado actual de Michi.
-    Sigue la misma lógica de prioridades que obtener_expresion(),
-    pero solo devuelve el "dibujo", no el texto.
-    """
-    m = fn.mascota
-    if not m["viva"]:
-        return "💀"
-    if m["salud"] <= 20:
-        return "🤒"
-    if m["comida"] <= 10:
-        return "🥺"
-    if m["energia"] <= 20:
-        return "😴"
-    if m["felicidad"] <= 20:
-        return "😭"
-    if m["felicidad"] <= 40:
-        return "😿"
-    if m["felicidad"] >= 90:
-        return "😻"
-    if m["felicidad"] >= 75:
-        return "😸"
-    return "🐱"
+# Paleta "noche en el tejado": fondo índigo, pelaje lila, ojos color luna.
+BG = "#171a36"             # fondo del chat
+PANEL = "#22264d"          # panel izquierdo
+ESCENA = "#2c3066"         # círculo detrás de Michi
+BURBUJA_MICHI = "#2f3468"
+BURBUJA_TU = "#ffd86b"
+TEXTO = "#eeeaff"
+TEXTO_SUAVE = "#a3a6d6"
+TEXTO_OSCURO = "#1b1d3a"
+LUNA = "#ffd86b"           # acento principal (ojos de Michi, botón enviar)
+MENTA = "#7fe3c4"          # estadística saludable
+AMBAR = "#ffd86b"          # estadística en descenso
+CORAL = "#ff7a8a"          # estadística crítica
+RIEL = "#343a78"           # fondo de las barras
+BOTON = "#323872"
+BOTON_HOVER = "#444b92"
+
+PELAJE = "#d8d2ff"
+PELAJE_SOMBRA = "#8d86d9"
+PELAJE_ENFERMO = "#c6e5cf"
+PELAJE_MUERTO = "#9aa0b5"
+ROSA = "#ff9fb5"
+LAGRIMA = "#8fd3ff"
+
+if sys.platform.startswith("win"):
+    FUENTE_EMOJI = "Segoe UI Emoji"
+elif sys.platform == "darwin":
+    FUENTE_EMOJI = "Apple Color Emoji"
+else:
+    FUENTE_EMOJI = "Noto Color Emoji"
+
+
+def elegir_fuente():
+    """Primera tipografía redondeada/legible disponible en el sistema."""
+    disponibles = set(tkfont.families())
+    for nombre in ("Nunito", "Quicksand", "Poppins", "Segoe UI", "SF Pro Rounded",
+                   "Helvetica Neue", "Ubuntu", "DejaVu Sans"):
+        if nombre in disponibles:
+            return nombre
+    return "TkDefaultFont"
 
 
 def color_segun_valor(valor):
-    """Verde si está bien, naranja si va bajando, rojo si es crítico."""
+    """Menta si está bien, ámbar si va bajando, coral si es crítico."""
     if valor <= 20:
-        return "#e74c3c"   # rojo
+        return CORAL
     if valor <= 50:
-        return "#f39c12"   # naranja
-    return "#2ecc71"       # verde
+        return AMBAR
+    return MENTA
 
 
-# Descripciones "amigables" de cada meta, para mostrar la meta activa
-# en un lenguaje más natural que el nombre interno usado en funciones.py
-# (definir_metas devuelve tuplas: (nombre_meta, prioridad, etiqueta_accion)).
+# =====================================================================
+# ESTADO VISUAL DE MICHI (misma lógica de prioridades que obtener_expresion)
+# =====================================================================
+def estado_visual():
+    """Devuelve el nombre del estado que se dibuja."""
+    m = fn.mascota
+    if not m["viva"]:
+        return "muerto"
+    if m["salud"] <= 20:
+        return "enfermo"
+    if m["comida"] <= 10:
+        return "hambre"
+    if m["energia"] <= 20:
+        return "dormido"
+    if m["felicidad"] <= 20:
+        return "llorando"
+    if m["felicidad"] <= 40:
+        return "triste"
+    if m["felicidad"] >= 90:
+        return "encantado"
+    if m["felicidad"] >= 75:
+        return "feliz"
+    return "normal"
+
+
+# Cómo se dibuja cada estado: (ojos, boca, extras)
+ASPECTO = {
+    "normal":    ("abiertos", "sonrisa", ()),
+    "feliz":     ("abiertos", "sonrisa", ("mejillas",)),
+    "encantado": ("felices", "sonrisa", ("mejillas", "corazones")),
+    "triste":    ("tristes", "triste", ()),
+    "llorando":  ("tristes", "triste", ("lagrimas",)),
+    "dormido":   ("cerrados", "neutra", ("zzz",)),
+    "hambre":    ("tristes", "abierta", ()),
+    "enfermo":   ("enfermos", "triste", ("sudor",)),
+    "muerto":    ("x", "neutra", ()),
+}
+
+# Descripciones "amigables" de cada meta (definir_metas devuelve tuplas:
+# (nombre_meta, prioridad, etiqueta_accion)).
 DESCRIPCIONES_METAS = {
-    "salud_critica": "¡cuidar su salud urgentemente!",
+    "salud_critica": "cuidar su salud urgentemente",
     "comida_urgente": "conseguir comida ya mismo",
     "comida_baja": "comer algo pronto",
     "energia_baja": "descansar un poco",
@@ -118,275 +167,555 @@ DESCRIPCIONES_METAS = {
 
 
 def obtener_texto_meta():
-    """
-    Consulta las metas insatisfechas de Michi (definidas en
-    funciones.py mediante el agente basado en metas) y arma el texto
-    que se muestra en la interfaz. Si funciones.py todavía no define
-    'definir_metas' (por ejemplo, si no has migrado el agente aún),
-    la interfaz sigue funcionando sin romperse.
-    """
+    """Meta que Michi persigue ahora (si funciones.py aún no la define, no rompe)."""
     if not hasattr(fn, "definir_metas"):
         return ""
     metas = fn.definir_metas(fn.percibir())
     if not metas:
-        return "🎯 Sin metas pendientes: Michi está conforme."
-    nombre_meta, _, _ = metas[0]
-    descripcion = DESCRIPCIONES_METAS.get(nombre_meta, nombre_meta)
-    return f"🎯 Meta actual: {descripcion}"
+        return "Michi está conforme"
+    nombre_meta = metas[0][0]
+    return "Michi quiere " + DESCRIPCIONES_METAS.get(nombre_meta, nombre_meta)
+
+
+def opciones_rapidas():
+    """
+    Botones de respuesta rápida según lo último que Michi preguntó.
+    Devuelve una lista de textos (vacía si no hay pregunta abierta).
+    """
+    if hasattr(fn, "charla") and fn.charla.get("nodo"):
+        tipo = fn.CHARLAS[fn.charla["nodo"]]["tipo"]
+        if tipo == "emocion":
+            return ["Bien", "Más o menos", "Mal"]
+        if tipo == "si_no":
+            return ["Sí", "No", "Quizás"]
+        return []                            # nodo "libre": se escribe a mano
+    if hasattr(fn, "pregunta_vigente") and fn.pregunta_vigente():
+        return ["Sí", "No", "Quizás"]
+    return []
+
+
+# =====================================================================
+# WIDGETS PROPIOS
+# =====================================================================
+class Boton(tk.Label):
+    """
+    Botón plano hecho con un Label. Los tk.Button ignoran los colores en
+    macOS; este se ve igual en Windows, macOS y Linux.
+    """
+
+    def __init__(self, master, texto, comando, fuente, bg=BOTON, hover=BOTON_HOVER,
+                 fg=TEXTO, **kw):
+        super().__init__(master, text=texto, bg=bg, fg=fg, font=fuente,
+                         cursor="hand2", padx=12, pady=8, **kw)
+        self._bg, self._hover, self._comando = bg, hover, comando
+        self._activo = True
+        self.bind("<Enter>", lambda e: self._activo and self.configure(bg=self._hover))
+        self.bind("<Leave>", lambda e: self.configure(bg=self._bg))
+        self.bind("<ButtonRelease-1>", self._soltar)
+
+    def _soltar(self, evento):
+        if self._activo and self._comando:
+            self._comando()
+
+    def activar(self, activo):
+        self._activo = activo
+        self.configure(cursor="hand2" if activo else "arrow",
+                       fg=TEXTO if activo else TEXTO_SUAVE)
+
+
+class BarraEstado(tk.Canvas):
+    """Barra redondeada que se desliza suavemente hacia su valor objetivo."""
+
+    ALTO = 12
+
+    def __init__(self, master, fondo):
+        super().__init__(master, height=self.ALTO, bg=fondo, highlightthickness=0, bd=0)
+        self.valor = 0.0
+        self.objetivo = 0
+        self.color = MENTA
+        self._sucio = True
+        self.bind("<Configure>", lambda e: self._dibujar())
+
+    def fijar(self, objetivo, color):
+        if objetivo != self.objetivo or color != self.color:
+            self.objetivo, self.color, self._sucio = objetivo, color, True
+
+    def paso(self):
+        """Avanza un poco hacia el objetivo (se llama desde el ciclo de animación)."""
+        if self.valor == self.objetivo and not self._sucio:
+            return
+        diferencia = self.objetivo - self.valor
+        self.valor += diferencia if abs(diferencia) <= 3 else (3 if diferencia > 0 else -3)
+        self._dibujar()
+
+    def _pastilla(self, x1, x2, color):
+        y1, y2 = 0, self.ALTO
+        r = (y2 - y1) / 2
+        if x2 - x1 <= 2 * r:
+            self.create_oval(x1, y1, x1 + 2 * r, y2, fill=color, outline="")
+            return
+        self.create_oval(x1, y1, x1 + 2 * r, y2, fill=color, outline="")
+        self.create_oval(x2 - 2 * r, y1, x2, y2, fill=color, outline="")
+        self.create_rectangle(x1 + r, y1, x2 - r, y2, fill=color, outline="")
+
+    def _dibujar(self):
+        ancho = self.winfo_width()
+        if ancho <= 4:
+            return
+        self._sucio = False
+        self.delete("all")
+        self._pastilla(0, ancho, RIEL)
+        if self.valor > 0:
+            self._pastilla(0, max(self.ALTO, ancho * self.valor / 100), self.color)
+
+
+class GatoCanvas(tk.Canvas):
+    """Michi dibujado con formas: ojos, boca y extras cambian según su estado."""
+
+    ANCHO, ALTO = 280, 250
+
+    def __init__(self, master, fondo):
+        super().__init__(master, width=self.ANCHO, height=self.ALTO, bg=fondo,
+                         highlightthickness=0, bd=0)
+        self._firma = None
+
+    def dibujar(self, estado, ojos_cerrados):
+        """Redibuja solo si algo cambió (evita parpadeos molestos)."""
+        firma = (estado, ojos_cerrados)
+        if firma == self._firma:
+            return
+        self._firma = firma
+        self.delete("all")
+        ojos, boca, extras = ASPECTO[estado]
+        if ojos_cerrados and ojos in ("abiertos", "tristes"):
+            ojos = "cerrados"
+        pelaje = {"enfermo": PELAJE_ENFERMO, "muerto": PELAJE_MUERTO}.get(estado, PELAJE)
+
+        # escena: una "luna" detrás de Michi
+        self.create_oval(20, 14, 260, 246, fill=ESCENA, outline="")
+        # cuerpo, orejas y cabeza
+        self.create_oval(72, 178, 208, 270, fill=pelaje, outline=PELAJE_SOMBRA, width=2)
+        self.create_polygon(68, 100, 80, 28, 128, 66, fill=pelaje, outline=PELAJE_SOMBRA, width=2)
+        self.create_polygon(212, 100, 200, 28, 152, 66, fill=pelaje, outline=PELAJE_SOMBRA, width=2)
+        self.create_polygon(82, 88, 88, 48, 112, 70, fill=ROSA, outline="")
+        self.create_polygon(198, 88, 192, 48, 168, 70, fill=ROSA, outline="")
+        self.create_oval(55, 55, 225, 205, fill=pelaje, outline=PELAJE_SOMBRA, width=2)
+
+        if "mejillas" in extras:
+            self.create_oval(72, 140, 104, 160, fill="#ffb3c6", outline="")
+            self.create_oval(176, 140, 208, 160, fill="#ffb3c6", outline="")
+
+        self._ojo(105, 118, ojos, izquierdo=True)
+        self._ojo(175, 118, ojos, izquierdo=False)
+        self.create_polygon(133, 142, 147, 142, 140, 152, fill=ROSA, outline=TEXTO_OSCURO)
+        self._boca(boca)
+
+        # bigotes
+        for dy, dy2 in ((-6, -2), (6, 6), (18, 12)):
+            self.create_line(62, 152 + dy, 94, 152 + dy2, fill=PELAJE_SOMBRA, width=2)
+            self.create_line(218, 152 + dy, 186, 152 + dy2, fill=PELAJE_SOMBRA, width=2)
+
+        self._extras(extras)
+
+    # ---- partes del dibujo ----
+    def _ojo(self, cx, cy, tipo, izquierdo):
+        if tipo == "abiertos":
+            self.create_oval(cx - 17, cy - 17, cx + 17, cy + 17, fill=LUNA, outline=TEXTO_OSCURO, width=2)
+            self.create_oval(cx - 6, cy - 13, cx + 6, cy + 13, fill=TEXTO_OSCURO, outline="")
+            self.create_oval(cx + 3, cy - 10, cx + 9, cy - 4, fill="white", outline="")
+        elif tipo == "tristes":
+            self.create_oval(cx - 15, cy - 15, cx + 15, cy + 15, fill=LUNA, outline=TEXTO_OSCURO, width=2)
+            self.create_oval(cx - 8, cy - 11, cx + 8, cy + 11, fill=TEXTO_OSCURO, outline="")
+            self.create_oval(cx - 2, cy - 8, cx + 5, cy - 1, fill="white", outline="")
+            # ceja inclinada hacia el centro (aspecto preocupado)
+            if izquierdo:
+                self.create_line(cx - 18, cy - 26, cx + 12, cy - 18, fill=TEXTO_OSCURO, width=3)
+            else:
+                self.create_line(cx + 18, cy - 26, cx - 12, cy - 18, fill=TEXTO_OSCURO, width=3)
+        elif tipo == "felices":
+            self.create_arc(cx - 16, cy - 14, cx + 16, cy + 18, start=20, extent=140,
+                            style="arc", outline=TEXTO_OSCURO, width=4)
+        elif tipo == "cerrados":
+            self.create_arc(cx - 16, cy - 18, cx + 16, cy + 10, start=200, extent=140,
+                            style="arc", outline=TEXTO_OSCURO, width=4)
+        elif tipo == "enfermos":
+            self.create_line(cx - 15, cy, cx - 8, cy - 7, cx, cy, cx + 8, cy - 7, cx + 15, cy,
+                             fill=TEXTO_OSCURO, width=4, smooth=True)
+        elif tipo == "x":
+            self.create_line(cx - 12, cy - 12, cx + 12, cy + 12, fill=TEXTO_OSCURO, width=4)
+            self.create_line(cx - 12, cy + 12, cx + 12, cy - 12, fill=TEXTO_OSCURO, width=4)
+
+    def _boca(self, tipo):
+        if tipo == "sonrisa":
+            self.create_arc(122, 144, 141, 166, start=200, extent=140, style="arc",
+                            outline=TEXTO_OSCURO, width=3)
+            self.create_arc(139, 144, 158, 166, start=200, extent=140, style="arc",
+                            outline=TEXTO_OSCURO, width=3)
+        elif tipo == "triste":
+            self.create_arc(122, 160, 141, 182, start=20, extent=140, style="arc",
+                            outline=TEXTO_OSCURO, width=3)
+            self.create_arc(139, 160, 158, 182, start=20, extent=140, style="arc",
+                            outline=TEXTO_OSCURO, width=3)
+        elif tipo == "abierta":
+            self.create_oval(131, 156, 149, 178, fill="#7a2f48", outline=TEXTO_OSCURO, width=2)
+        else:  # neutra
+            self.create_line(140, 152, 140, 160, fill=TEXTO_OSCURO, width=3)
+            self.create_line(128, 162, 152, 162, fill=TEXTO_OSCURO, width=3)
+
+    def _extras(self, extras):
+        if "lagrimas" in extras:
+            self.create_oval(108, 140, 118, 158, fill=LAGRIMA, outline="")
+            self.create_oval(168, 140, 178, 158, fill=LAGRIMA, outline="")
+        if "sudor" in extras:
+            self.create_polygon(196, 66, 190, 80, 202, 80, fill=LAGRIMA, outline="", smooth=True)
+        if "zzz" in extras:
+            for x, y, tam in ((214, 56, 14), (234, 38, 18), (252, 18, 22)):
+                self.create_text(x, y, text="z", fill=TEXTO, font=("Georgia", tam, "bold italic"))
+        if "corazones" in extras:
+            for x, y, tam in ((40, 50, 16), (240, 70, 20), (52, 120, 12)):
+                self.create_text(x, y, text="♥", fill=CORAL, font=("Arial", tam))
+
+
+class PanelChat(tk.Frame):
+    """Zona de mensajes con burbujas y desplazamiento."""
+
+    MAX_MENSAJES = 150
+
+    def __init__(self, master, fuente, fuente_pequena):
+        super().__init__(master, bg=BG)
+        self.fuente, self.fuente_pequena = fuente, fuente_pequena
+        self.filas = []
+        self.etiquetas = []                       # burbujas, para ajustar su ancho
+        self.ancho_burbuja = 380
+
+        self.lienzo = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
+        self.barra = tk.Scrollbar(self, orient="vertical", command=self.lienzo.yview)
+        self.lienzo.configure(yscrollcommand=self.barra.set)
+        self.barra.pack(side="right", fill="y")
+        self.lienzo.pack(side="left", fill="both", expand=True)
+
+        self.interior = tk.Frame(self.lienzo, bg=BG)
+        self.ventana = self.lienzo.create_window((0, 0), window=self.interior, anchor="nw")
+        self.interior.bind("<Configure>",
+                           lambda e: self.lienzo.configure(scrollregion=self.lienzo.bbox("all")))
+        self.lienzo.bind("<Configure>", self._ajustar_ancho)
+        self.lienzo.bind("<Enter>", self._enlazar_rueda)
+
+    def _ajustar_ancho(self, evento):
+        self.lienzo.itemconfigure(self.ventana, width=evento.width)
+        self.ancho_burbuja = max(200, int(evento.width * 0.66))
+        for etiqueta in self.etiquetas:
+            etiqueta.configure(wraplength=self.ancho_burbuja)
+
+    def _enlazar_rueda(self, _evento):
+        self.lienzo.bind_all("<MouseWheel>", self._rueda)
+        self.lienzo.bind_all("<Button-4>", self._rueda)
+        self.lienzo.bind_all("<Button-5>", self._rueda)
+
+    def _rueda(self, evento):
+        if getattr(evento, "num", 0) == 4:
+            paso = -1
+        elif getattr(evento, "num", 0) == 5:
+            paso = 1
+        else:
+            paso = -1 if evento.delta > 0 else 1
+        self.lienzo.yview_scroll(paso, "units")
+
+    def agregar(self, rol, texto, emoji=None):
+        """rol: 'michi' (izquierda), 'tu' (derecha) o 'nota' (centrada, discreta)."""
+        fila = tk.Frame(self.interior, bg=BG)
+        fila.pack(fill="x", padx=14, pady=4)
+        if rol == "nota":
+            etiqueta = tk.Label(fila, text=texto, bg=BG, fg=TEXTO_SUAVE, font=self.fuente_pequena,
+                                wraplength=self.ancho_burbuja + 120, justify="center")
+            etiqueta.pack()
+        elif rol == "michi":
+            tk.Label(fila, text=emoji or "🐱", bg=BG, font=(FUENTE_EMOJI, 16)).pack(
+                side="left", anchor="n", padx=(0, 8))
+            etiqueta = tk.Label(fila, text=texto, bg=BURBUJA_MICHI, fg=TEXTO, font=self.fuente,
+                                wraplength=self.ancho_burbuja, justify="left", padx=14, pady=9)
+            etiqueta.pack(side="left", anchor="n")
+        else:
+            etiqueta = tk.Label(fila, text=texto, bg=BURBUJA_TU, fg=TEXTO_OSCURO, font=self.fuente,
+                                wraplength=self.ancho_burbuja, justify="left", padx=14, pady=9)
+            etiqueta.pack(side="right", anchor="n")
+        self.etiquetas.append(etiqueta)
+        self.filas.append(fila)
+        while len(self.filas) > self.MAX_MENSAJES:
+            self.filas.pop(0).destroy()
+            self.etiquetas.pop(0)
+        self.after_idle(self._al_final)
+
+    def _al_final(self):
+        self.lienzo.update_idletasks()
+        self.lienzo.yview_moveto(1.0)
 
 
 # =====================================================================
 # VENTANA PRINCIPAL
 # =====================================================================
 class VentanaMichi:
+    PLACEHOLDER = "Escríbele a Michi…"
+
     def __init__(self, root):
         self.root = root
-        self.root.title("🐱 Michi - Mascota Virtual")
-        self.root.geometry("560x780")
-        self.root.minsize(480, 700)
-        self.root.configure(bg="#fdf6ec")
+        self.root.title("Michi, tu mascota virtual")
+        self.root.geometry("1000x700")
+        self.root.minsize(840, 620)
+        self.root.configure(bg=BG)
 
-        self.estilo = ttk.Style()
-        try:
-            self.estilo.theme_use("clam")
-        except tk.TclError:
-            pass
-        for nombre in ("Salud", "Felicidad", "Comida", "Energia"):
-            self.estilo.configure(
-                f"{nombre}.Horizontal.TProgressbar",
-                troughcolor="#eee2d3",
-                bordercolor="#eee2d3",
-                background="#2ecc71",
-                thickness=18,
-            )
+        familia = elegir_fuente()
+        self.f_nombre = (familia, 22, "bold")
+        self.f_texto = (familia, 11)
+        self.f_pequena = (familia, 9)
+        self.f_boton = (familia, 10, "bold")
+        self.f_entrada = (familia, 12)
 
-        self._crear_avatar()
-        self._crear_barras()
-        self._crear_botones()
-        self._crear_chat()
+        self._resto = ""                          # línea a medias de la salida
+        self._opciones_actuales = None
+        self._ojos_cerrados_hasta = 0.0
+        self._proximo_parpadeo = time.time() + random.uniform(2.5, 6)
+        self._hay_placeholder = True
 
+        self._crear_panel_izquierdo()
+        self._crear_panel_chat()
         self.root.protocol("WM_DELETE_WINDOW", self._cerrar)
 
-        # Arranca el hilo del agente (idéntico al de la consola) y
-        # empieza a revisar la cola de mensajes.
+        # Arranca el hilo del agente (igual que en consola) y el ciclo de la ventana.
         fn.iniciar_hilo_agente()
-        self._log("🐱✨ ¡Bienvenido a tu mascota virtual Michi! ✨🐱")
-        self._log("TUTORIAL")
-        self._log("Usa los botones o escríbele algo en el cuadro de abajo.")
-        self._log("💡 Enséñale: aprende chido significa felicitacion  |  aprende hola amo => ¡Hola!\n")
-        self._refrescar()
-        self._procesar_cola()
+        self.chat.agregar("nota", "Escríbele algo a Michi o toca Platicar para que te haga preguntas.")
+        self.chat.agregar("michi", "¡Hola! Soy Michi. ¿Jugamos o platicamos?", "😸🐾")
+        self._ciclo()
 
     # -----------------------------------------------------------------
-    # CONSTRUCCIÓN DE WIDGETS
+    # CONSTRUCCIÓN
     # -----------------------------------------------------------------
-    def _crear_avatar(self):
-        marco = tk.Frame(self.root, bg="#fdf6ec")
-        marco.pack(pady=(14, 4))
+    def _crear_panel_izquierdo(self):
+        izq = tk.Frame(self.root, bg=PANEL, width=340)
+        izq.pack(side="left", fill="y")
+        izq.pack_propagate(False)
 
-        self.lbl_avatar = tk.Label(
-            marco, text="🐱", font=("Segoe UI Emoji", 90), bg="#fdf6ec"
-        )
-        self.lbl_avatar.pack()
+        self.gato = GatoCanvas(izq, PANEL)
+        self.gato.pack(pady=(18, 0))
 
-        self.lbl_nombre = tk.Label(
-            marco, text=fn.mascota["nombre"],
-            font=("Segoe UI", 18, "bold"), bg="#fdf6ec", fg="#4a3f35"
-        )
-        self.lbl_nombre.pack()
+        tk.Label(izq, text=fn.mascota["nombre"], bg=PANEL, fg=TEXTO,
+                 font=self.f_nombre).pack(pady=(4, 0))
+        self.lbl_expresion = tk.Label(izq, text="", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_texto,
+                                      wraplength=300, justify="center")
+        self.lbl_expresion.pack(pady=(2, 8))
+        self.lbl_meta = tk.Label(izq, text="", bg=BOTON, fg=LUNA, font=self.f_pequena,
+                                 wraplength=290, padx=12, pady=5)
+        self.lbl_meta.pack(pady=(0, 12))
 
-        self.lbl_expresion = tk.Label(
-            marco, text="", font=("Segoe UI", 11), bg="#fdf6ec",
-            fg="#6b5d4f", wraplength=480, justify="center"
-        )
-        self.lbl_expresion.pack(pady=(2, 0))
-
-        # Label de la meta activa del agente basado en metas.
-        self.lbl_meta = tk.Label(
-            marco, text="", font=("Segoe UI", 9, "italic"),
-            bg="#fdf6ec", fg="#8a7a68"
-        )
-        self.lbl_meta.pack(pady=(2, 0))
-
-    def _crear_barras(self):
-        marco = tk.Frame(self.root, bg="#fdf6ec")
-        marco.pack(fill="x", padx=24, pady=8)
-
-        self.barras = {}
-        self.valores = {}
-        datos = [
-            ("salud", "❤️ Salud", "Salud"),
-            ("felicidad", "😊 Felicidad", "Felicidad"),
-            ("comida", "🍗 Comida", "Comida"),
-            ("energia", "⚡ Energía", "Energia"),
-        ]
-        for clave, etiqueta, estilo in datos:
-            fila = tk.Frame(marco, bg="#fdf6ec")
-            fila.pack(fill="x", pady=3)
-
-            tk.Label(
-                fila, text=etiqueta, width=12, anchor="w",
-                font=("Segoe UI", 10), bg="#fdf6ec", fg="#4a3f35"
-            ).pack(side="left")
-
-            barra = ttk.Progressbar(
-                fila, style=f"{estilo}.Horizontal.TProgressbar",
-                maximum=100, value=0
-            )
+        barras = tk.Frame(izq, bg=PANEL)
+        barras.pack(fill="x", padx=22)
+        self.barras, self.valores = {}, {}
+        for clave, etiqueta in (("salud", "❤️  Salud"), ("felicidad", "😊  Felicidad"),
+                                ("comida", "🍗  Comida"), ("energia", "⚡  Energía")):
+            fila = tk.Frame(barras, bg=PANEL)
+            fila.pack(fill="x", pady=5)
+            tk.Label(fila, text=etiqueta, bg=PANEL, fg=TEXTO, font=self.f_texto,
+                     width=11, anchor="w").pack(side="left")
+            barra = BarraEstado(fila, PANEL)
             barra.pack(side="left", fill="x", expand=True, padx=6)
-            self.barras[clave] = barra
+            valor = tk.Label(fila, text="0", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_pequena,
+                             width=4, anchor="e")
+            valor.pack(side="left")
+            self.barras[clave], self.valores[clave] = barra, valor
 
-            valor_lbl = tk.Label(
-                fila, text="0/100", width=7, font=("Segoe UI", 9),
-                bg="#fdf6ec", fg="#4a3f35"
-            )
-            valor_lbl.pack(side="left")
-            self.valores[clave] = valor_lbl
+        self.lbl_horas = tk.Label(izq, text="", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_pequena,
+                                  wraplength=300, justify="center")
+        self.lbl_horas.pack(pady=(6, 10))
 
-        self.lbl_horas = tk.Label(
-            marco, text="", font=("Segoe UI", 9, "italic"),
-            bg="#fdf6ec", fg="#8a7a68"
-        )
-        self.lbl_horas.pack(pady=(4, 0))
-
-    def _crear_botones(self):
-        marco = tk.Frame(self.root, bg="#fdf6ec")
-        marco.pack(pady=8)
-
-        estilo_boton = {
-            "font": ("Segoe UI", 10), "width": 14, "bd": 0,
-            "bg": "#ffe4c4", "activebackground": "#ffd39b",
-            "relief": "flat", "cursor": "hand2"
-        }
-
-        self.botones_accion = []
+        rejilla = tk.Frame(izq, bg=PANEL)
+        rejilla.pack(fill="x", padx=18, pady=(0, 14))
         acciones = [
-            ("👀 Ver estado", self._ver_estado),
-            ("🍗 Alimentar", self._alimentar),
-            ("❤️ Dar cariño", self._dar_carino),
-            ("🎾 Jugar", self._jugar),
-            ("😴 Dormir", self._descansar),
-            ("📈 Hábitos", self._habitos),
+            ("Alimentar", fn.alimentar), ("Dar cariño", fn.dar_carino), ("Jugar", fn.jugar),
+            ("Dormir", fn.descansar), ("Hábitos", fn.mostrar_habitos), ("Platicar", self._platicar),
         ]
+        self.botones_accion = []
         for i, (texto, comando) in enumerate(acciones):
-            btn = tk.Button(marco, text=texto, command=comando, **estilo_boton)
-            btn.grid(row=i // 3, column=i % 3, padx=5, pady=5)
-            self.botones_accion.append(btn)
+            destacado = texto == "Platicar"
+            boton = Boton(rejilla, texto, lambda c=comando: self._accion(c), self.f_boton,
+                          bg=LUNA if destacado else BOTON,
+                          hover="#ffe699" if destacado else BOTON_HOVER,
+                          fg=TEXTO_OSCURO if destacado else TEXTO)
+            boton.grid(row=i // 3, column=i % 3, padx=4, pady=4, sticky="ew")
+            self.botones_accion.append(boton)
+        for columna in range(3):
+            rejilla.columnconfigure(columna, weight=1, uniform="acciones")
 
-    def _crear_chat(self):
-        marco = tk.Frame(self.root, bg="#fdf6ec")
-        marco.pack(fill="both", expand=True, padx=14, pady=(6, 10))
+    def _crear_panel_chat(self):
+        der = tk.Frame(self.root, bg=BG)
+        der.pack(side="left", fill="both", expand=True)
 
-        self.log = scrolledtext.ScrolledText(
-            marco, height=12, wrap="word", font=("Segoe UI", 10),
-            bg="white", fg="#333333", state="disabled", bd=1, relief="solid"
-        )
-        self.log.pack(fill="both", expand=True)
+        self.chat = PanelChat(der, self.f_texto, self.f_pequena)
+        self.chat.pack(fill="both", expand=True, pady=(10, 0))
 
-        marco_entrada = tk.Frame(self.root, bg="#fdf6ec")
-        marco_entrada.pack(fill="x", padx=14, pady=(0, 14))
+        self.fila_opciones = tk.Frame(der, bg=BG)       # se muestra solo si Michi pregunta
+        self.fila_entrada = tk.Frame(der, bg=BG)
+        self.fila_entrada.pack(fill="x", padx=14, pady=(8, 14))
 
-        self.entrada = tk.Entry(marco_entrada, font=("Segoe UI", 11))
-        self.entrada.pack(side="left", fill="x", expand=True, ipady=5)
-        self.entrada.bind("<Return>", lambda evento: self._hablar())
+        self.entrada = tk.Entry(self.fila_entrada, font=self.f_entrada, bg=PANEL, fg=TEXTO_SUAVE,
+                                insertbackground=TEXTO, relief="flat", bd=0,
+                                highlightthickness=2, highlightbackground=PANEL,
+                                highlightcolor=LUNA)
+        self.entrada.pack(side="left", fill="x", expand=True, ipady=9)
+        self.entrada.insert(0, self.PLACEHOLDER)
+        self.entrada.bind("<FocusIn>", self._quitar_placeholder)
+        self.entrada.bind("<FocusOut>", self._poner_placeholder)
+        self.entrada.bind("<Return>", lambda e: self._enviar())
 
-        self.btn_hablar = tk.Button(
-            marco_entrada, text="🗣️ Hablar", font=("Segoe UI", 10),
-            bg="#a3d9a5", activebackground="#8cc98e", bd=0,
-            relief="flat", cursor="hand2", command=self._hablar
-        )
-        self.btn_hablar.pack(side="left", padx=(8, 0))
+        self.btn_enviar = Boton(self.fila_entrada, "Enviar", self._enviar, self.f_boton,
+                                bg=LUNA, hover="#ffe699", fg=TEXTO_OSCURO)
+        self.btn_enviar.pack(side="left", padx=(8, 0))
 
     # -----------------------------------------------------------------
-    # ACCIONES DE LOS BOTONES (usan las funciones de funciones.py)
+    # ENTRADA DE TEXTO
     # -----------------------------------------------------------------
-    def _ver_estado(self):
-        fn.mostrar_estado()
+    def _quitar_placeholder(self, _evento=None):
+        if self._hay_placeholder:
+            self.entrada.delete(0, "end")
+            self.entrada.configure(fg=TEXTO)
+            self._hay_placeholder = False
 
-    def _alimentar(self):
-        fn.alimentar()
+    def _poner_placeholder(self, _evento=None):
+        if not self.entrada.get().strip():
+            self.entrada.delete(0, "end")
+            self.entrada.insert(0, self.PLACEHOLDER)
+            self.entrada.configure(fg=TEXTO_SUAVE)
+            self._hay_placeholder = True
 
-    def _dar_carino(self):
-        fn.dar_carino()
-
-    def _jugar(self):
-        fn.jugar()
-
-    def _descansar(self):
-        fn.descansar()
-
-    def _habitos(self):
-        fn.mostrar_habitos()
-
-    def _hablar(self):
+    def _enviar(self):
+        if self._hay_placeholder:
+            return
         texto = self.entrada.get().strip()
         if not texto:
             return
         self.entrada.delete(0, "end")
-        print(f"\n🗣️ Tú: {texto}")
+        self._enviar_texto(texto)
+
+    def _enviar_texto(self, texto):
+        """Muestra tu mensaje y se lo pasa a Michi (también lo usan las respuestas rápidas)."""
+        if not fn.mascota["viva"]:
+            return
+        self.chat.agregar("tu", texto)
         fn.conversar(texto)
+        self._refrescar()
+
+    # -----------------------------------------------------------------
+    # ACCIONES
+    # -----------------------------------------------------------------
+    def _accion(self, funcion):
+        if fn.mascota["viva"]:
+            funcion()
+            self._refrescar()
+
+    def _platicar(self):
+        fn.conversar("platiquemos")
 
     def _cerrar(self):
         self.root.destroy()
 
     # -----------------------------------------------------------------
+    # SALIDA DE FUNCIONES.PY -> BURBUJAS
+    # -----------------------------------------------------------------
+    def _mostrar_linea(self, linea):
+        linea = linea.strip()
+        if not linea:
+            return
+        # Las barras de texto de funciones.py ya se ven en el panel izquierdo.
+        if "ESTADÍSTICAS DE MICHI" in linea or "█" in linea or "░" in linea:
+            return
+        indice = linea.find("Michi:")
+        if indice != -1:
+            self.chat.agregar("michi", linea[indice + 6:].strip(), linea[:indice].strip() or "🐱")
+        else:
+            self.chat.agregar("nota", linea)
+
+    def _procesar_cola(self):
+        texto = ""
+        try:
+            while True:
+                texto += cola_salida.cola.get_nowait()
+        except queue.Empty:
+            pass
+        if texto:
+            self._resto += texto
+            *lineas, self._resto = self._resto.split("\n")
+            for linea in lineas:
+                self._mostrar_linea(linea)
+        elif self._resto.strip():                 # línea sin salto final: se muestra igual
+            self._mostrar_linea(self._resto)
+            self._resto = ""
+
+    # -----------------------------------------------------------------
     # ACTUALIZACIÓN VISUAL
     # -----------------------------------------------------------------
-    def _log(self, texto):
-        self.log.configure(state="normal")
-        self.log.insert("end", texto + "\n")
-        self.log.see("end")
-        self.log.configure(state="disabled")
+    def _actualizar_opciones(self):
+        opciones = opciones_rapidas() if fn.mascota["viva"] else []
+        if opciones == self._opciones_actuales:
+            return
+        self._opciones_actuales = opciones
+        for hijo in self.fila_opciones.winfo_children():
+            hijo.destroy()
+        if not opciones:
+            self.fila_opciones.pack_forget()
+            return
+        for texto in opciones:
+            Boton(self.fila_opciones, texto, lambda t=texto: self._enviar_texto(t),
+                  self.f_boton).pack(side="left", padx=(0, 8))
+        self.fila_opciones.pack(fill="x", padx=14, pady=(8, 0), before=self.fila_entrada)
 
     def _refrescar(self):
         m = fn.mascota
-
-        self.lbl_avatar.configure(text=obtener_avatar())
         self.lbl_expresion.configure(text=fn.obtener_expresion())
         self.lbl_meta.configure(text=obtener_texto_meta())
-
         for clave in ("salud", "felicidad", "comida", "energia"):
             valor = m[clave]
-            self.barras[clave]["value"] = valor
-            self.valores[clave].configure(text=f"{valor}/100")
-            estilo = clave.capitalize() if clave != "energia" else "Energia"
-            self.estilo.configure(
-                f"{estilo}.Horizontal.TProgressbar",
-                background=color_segun_valor(valor)
-            )
-
+            self.barras[clave].fijar(valor, color_segun_valor(valor))
+            self.valores[clave].configure(text=str(valor))
         self.lbl_horas.configure(
-            text=(f"🕐 Horas sin cuidado: {m['horas_sin_cuidado']}   "
-                  f"💕 Horas sin cariño: {m['horas_sin_carino']}")
-        )
+            text=f"Horas sin cuidado: {m['horas_sin_cuidado']}   ·   "
+                 f"Horas sin cariño: {m['horas_sin_carino']}")
+        self._actualizar_opciones()
 
         if not m["viva"]:
             for boton in self.botones_accion:
-                boton.configure(state="disabled")
-            self.btn_hablar.configure(state="disabled")
+                boton.activar(False)
+            self.btn_enviar.activar(False)
             self.entrada.configure(state="disabled")
 
-    def _procesar_cola(self):
-        hubo_mensajes = False
-        try:
-            while True:
-                texto = cola_salida.cola.get_nowait()
-                self.log.configure(state="normal")
-                self.log.insert("end", texto)
-                self.log.configure(state="disabled")
-                hubo_mensajes = True
-        except queue.Empty:
-            pass
-        if hubo_mensajes:
-            self.log.see("end")
+    def _ciclo(self):
+        """Se ejecuta ~10 veces por segundo: mensajes, barras y parpadeo."""
+        self._procesar_cola()
         self._refrescar()
-        self.root.after(150, self._procesar_cola)
+        for barra in self.barras.values():
+            barra.paso()
+
+        ahora = time.time()
+        if ahora >= self._proximo_parpadeo:
+            self._ojos_cerrados_hasta = ahora + 0.15
+            self._proximo_parpadeo = ahora + random.uniform(2.5, 6)
+        self.gato.dibujar(estado_visual(), ahora < self._ojos_cerrados_hasta)
+
+        self.root.after(100, self._ciclo)
 
 
 # =====================================================================
 # PUNTO DE ENTRADA
 # =====================================================================
+def main():
+    redirigir_salida()
+    try:                                          # nitidez en pantallas de alta resolución (Windows)
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+    raiz = tk.Tk()
+    VentanaMichi(raiz)
+    raiz.mainloop()
+
+
 if __name__ == "__main__":
-    ventana_raiz = tk.Tk()
-    app = VentanaMichi(ventana_raiz)
-    ventana_raiz.mainloop()
+    main()
