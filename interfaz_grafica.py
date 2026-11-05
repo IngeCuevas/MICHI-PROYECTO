@@ -99,7 +99,7 @@ def elegir_fuente():
     """Primera tipografía redondeada/legible disponible en el sistema."""
     disponibles = set(tkfont.families())
     for nombre in ("Nunito", "Quicksand", "Poppins", "Segoe UI", "SF Pro Rounded",
-                   "Helvetica Neue", "Ubuntu", "DejaVu Sans"):
+                "Helvetica Neue", "Ubuntu", "DejaVu Sans"):
         if nombre in disponibles:
             return nombre
     return "TkDefaultFont"
@@ -220,7 +220,7 @@ class Boton(tk.Label):
     def activar(self, activo):
         self._activo = activo
         self.configure(cursor="hand2" if activo else "arrow",
-                       fg=TEXTO if activo else TEXTO_SUAVE)
+                    fg=TEXTO if activo else TEXTO_SUAVE)
 
 
 class BarraEstado(tk.Canvas):
@@ -276,7 +276,7 @@ class GatoCanvas(tk.Canvas):
 
     def __init__(self, master, fondo):
         super().__init__(master, width=self.ANCHO, height=self.ALTO, bg=fondo,
-                         highlightthickness=0, bd=0)
+                        highlightthickness=0, bd=0)
         self._firma = None
 
     def dibujar(self, estado, ojos_cerrados):
@@ -340,7 +340,7 @@ class GatoCanvas(tk.Canvas):
                             style="arc", outline=TEXTO_OSCURO, width=4)
         elif tipo == "enfermos":
             self.create_line(cx - 15, cy, cx - 8, cy - 7, cx, cy, cx + 8, cy - 7, cx + 15, cy,
-                             fill=TEXTO_OSCURO, width=4, smooth=True)
+                            fill=TEXTO_OSCURO, width=4, smooth=True)
         elif tipo == "x":
             self.create_line(cx - 12, cy - 12, cx + 12, cy + 12, fill=TEXTO_OSCURO, width=4)
             self.create_line(cx - 12, cy + 12, cx + 12, cy - 12, fill=TEXTO_OSCURO, width=4)
@@ -397,7 +397,7 @@ class PanelChat(tk.Frame):
         self.interior = tk.Frame(self.lienzo, bg=BG)
         self.ventana = self.lienzo.create_window((0, 0), window=self.interior, anchor="nw")
         self.interior.bind("<Configure>",
-                           lambda e: self.lienzo.configure(scrollregion=self.lienzo.bbox("all")))
+                        lambda e: self.lienzo.configure(scrollregion=self.lienzo.bbox("all")))
         self.lienzo.bind("<Configure>", self._ajustar_ancho)
         self.lienzo.bind("<Enter>", self._enlazar_rueda)
 
@@ -499,12 +499,12 @@ class VentanaMichi:
         self.gato.pack(pady=(18, 0))
 
         tk.Label(izq, text=fn.mascota["nombre"], bg=PANEL, fg=TEXTO,
-                 font=self.f_nombre).pack(pady=(4, 0))
+                font=self.f_nombre).pack(pady=(4, 0))
         self.lbl_expresion = tk.Label(izq, text="", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_texto,
-                                      wraplength=300, justify="center")
+                                    wraplength=300, justify="center")
         self.lbl_expresion.pack(pady=(2, 8))
         self.lbl_meta = tk.Label(izq, text="", bg=BOTON, fg=LUNA, font=self.f_pequena,
-                                 wraplength=290, padx=12, pady=5)
+                                wraplength=290, padx=12, pady=5)
         self.lbl_meta.pack(pady=(0, 12))
 
         barras = tk.Frame(izq, bg=PANEL)
@@ -515,16 +515,16 @@ class VentanaMichi:
             fila = tk.Frame(barras, bg=PANEL)
             fila.pack(fill="x", pady=5)
             tk.Label(fila, text=etiqueta, bg=PANEL, fg=TEXTO, font=self.f_texto,
-                     width=11, anchor="w").pack(side="left")
+                    width=11, anchor="w").pack(side="left")
             barra = BarraEstado(fila, PANEL)
             barra.pack(side="left", fill="x", expand=True, padx=6)
             valor = tk.Label(fila, text="0", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_pequena,
-                             width=4, anchor="e")
+                            width=4, anchor="e")
             valor.pack(side="left")
             self.barras[clave], self.valores[clave] = barra, valor
 
         self.lbl_horas = tk.Label(izq, text="", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_pequena,
-                                  wraplength=300, justify="center")
+                                wraplength=300, justify="center")
         self.lbl_horas.pack(pady=(6, 10))
 
         rejilla = tk.Frame(izq, bg=PANEL)
@@ -537,9 +537,9 @@ class VentanaMichi:
         for i, (texto, comando) in enumerate(acciones):
             destacado = texto == "Platicar"
             boton = Boton(rejilla, texto, lambda c=comando: self._accion(c), self.f_boton,
-                          bg=LUNA if destacado else BOTON,
-                          hover="#ffe699" if destacado else BOTON_HOVER,
-                          fg=TEXTO_OSCURO if destacado else TEXTO)
+                        bg=LUNA if destacado else BOTON,
+                        hover="#ffe699" if destacado else BOTON_HOVER,
+                        fg=TEXTO_OSCURO if destacado else TEXTO)
             boton.grid(row=i // 3, column=i % 3, padx=4, pady=4, sticky="ew")
             self.botones_accion.append(boton)
         for columna in range(3):
@@ -664,7 +664,7 @@ class VentanaMichi:
             return
         for texto in opciones:
             Boton(self.fila_opciones, texto, lambda t=texto: self._enviar_texto(t),
-                  self.f_boton).pack(side="left", padx=(0, 8))
+                self.f_boton).pack(side="left", padx=(0, 8))
         self.fila_opciones.pack(fill="x", padx=14, pady=(8, 0), before=self.fila_entrada)
 
     def _refrescar(self):
@@ -677,7 +677,7 @@ class VentanaMichi:
             self.valores[clave].configure(text=str(valor))
         self.lbl_horas.configure(
             text=f"Horas sin cuidado: {m['horas_sin_cuidado']}   ·   "
-                 f"Horas sin cariño: {m['horas_sin_carino']}")
+                f"Horas sin cariño: {m['horas_sin_carino']}")
         self._actualizar_opciones()
 
         if not m["viva"]:

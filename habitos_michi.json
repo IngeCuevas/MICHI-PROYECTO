@@ -695,6 +695,66 @@
    "hora": 1,
    "fecha": "2026-11-05",
    "espera": 1
+  },
+  {
+   "accion": "dar_carino",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 1
+  },
+  {
+   "accion": "alimentar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
+  },
+  {
+   "accion": "alimentar",
+   "hora": 1,
+   "fecha": "2026-11-05",
+   "espera": 0
   }
  ]
 }
