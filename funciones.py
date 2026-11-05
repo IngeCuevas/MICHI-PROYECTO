@@ -5,6 +5,7 @@ import unicodedata
 import re
 import os
 import json
+import difflib
 from datetime import datetime, date, timedelta
 from collections import deque, Counter
 from banco_palabras import CONOCIMIENTOS_IA
@@ -53,6 +54,34 @@ def normalizar_texto(texto):
         if unicodedata.category(caracter) != "Mn"
     )
     return texto
+# ===================================================================
+# CONVERSACIÓN MÁS NATURAL: TOLERANCIA A ERRORES DE ESCRITURA
+# ===================================================================
+# Michi sigue siendo un sistema de reglas, pero ahora entiende mejor
+# cómo escribe la gente de verdad: letras alargadas ("holaaaa",
+# "cariñooo") y pequeños errores de tipeo ("juguemoss", "carinoo").
+def suavizar_texto(texto):
+    """Reduce letras repetidas: 'holaaaa' -> 'hola', 'juguemooos' -> 'juguemos'."""
+    texto = re.sub(r"([aeiou])\1+", r"\1", texto)       # vocales repetidas
+    texto = re.sub(r"([a-z])\1{2,}", r"\1", texto)       # consonantes 3+ veces
+    return texto
+
+
+def palabra_parecida(palabra, mensaje, umbral=0.85):
+    """
+    True si alguna palabra del mensaje se parece mucho a 'palabra'
+    (misma letra inicial y similitud >= umbral). Solo para palabras
+    sueltas de 5+ letras, para evitar falsos positivos.
+    """
+    if " " in palabra or len(palabra) < 5:
+        return False
+    for w in re.findall(r"[a-z0-9]+", mensaje):
+        if (len(w) >= 5 and w[0] == palabra[0] and abs(len(w) - len(palabra)) <= 2
+                and difflib.SequenceMatcher(None, w, palabra).ratio() >= umbral):
+            return True
+    return False
+
+
 # EXPRESIÓN DE MICHI
 def obtener_expresion():
     if mascota["salud"] <= 20:
@@ -271,7 +300,7 @@ def guardar_habitos():
     try:
         with open(ARCHIVO_HABITOS, "w", encoding="utf-8") as archivo:
             json.dump({"eventos": historial_cuidados}, archivo,
-                      ensure_ascii=False, indent=1)
+                    ensure_ascii=False, indent=1)
     except OSError:
         pass  # si no se puede guardar, Michi sigue funcionando en memoria
 
@@ -370,18 +399,18 @@ def analizar_habitos(hoy=None):
     peor = max(e["espera"] for e in eventos)
     if espera_media <= 3:
         obs.append(f"💚 Eres muy atento: me atiendes tras {espera_media:.1f} horas "
-                   f"de espera en promedio (la peor fue de {peor}).")
+                f"de espera en promedio (la peor fue de {peor}).")
     elif espera_media <= 7:
         obs.append(f"💛 Me atiendes con regularidad: {espera_media:.1f} horas de espera "
-                   f"en promedio (la peor fue de {peor}).")
+                f"en promedio (la peor fue de {peor}).")
     else:
         obs.append(f"💔 Sueles dejarme esperando mucho: {espera_media:.1f} horas en "
-                   f"promedio (la peor fue de {peor}).")
+                f"promedio (la peor fue de {peor}).")
 
     # 4. CONSTANCIA: días distintos y rachas
     dias = {e["fecha"] for e in eventos}
     obs.append(f"📅 Me has cuidado en {len(dias)} día(s) distinto(s), "
-               f"unas {n / len(dias):.1f} veces por día.")
+            f"unas {n / len(dias):.1f} veces por día.")
     racha = racha_de_dias(hoy)
     if racha >= 2:
         obs.append(f"🔥 Llevas {racha} días seguidos cuidándome. ¡Gracias!")
@@ -389,7 +418,7 @@ def analizar_habitos(hoy=None):
         dias_sin_venir = (hoy - max(date.fromisoformat(d) for d in dias)).days
         if dias_sin_venir >= 2:
             obs.append(f"😿 Antes de esta visita pasaron {dias_sin_venir} días "
-                       f"sin que me cuidaras.")
+                    f"sin que me cuidaras.")
     return obs
 
 
@@ -397,8 +426,8 @@ def mostrar_habitos():
     n = len(historial_cuidados)
     if n < MIN_EVENTOS:
         print(f"🐱🔍 Michi: Todavía te estoy conociendo, amo... llevo {n} "
-              f"cuidado(s) anotado(s) y necesito al menos {MIN_EVENTOS} "
-              f"para notar patrones.")
+            f"cuidado(s) anotado(s) y necesito al menos {MIN_EVENTOS} "
+            f"para notar patrones.")
         return
     print("\n📈🐱 LO QUE HE NOTADO DE TI, DUEÑO-AMO")
     print(f"   (según tus últimos {n} cuidados)")
@@ -422,7 +451,7 @@ def anticipar_visita():
         return
     ultimo_aviso["clave"] = clave
     print(f"🕐🐾 Michi: Ya es la hora en que sueles venir {FRASE_FRANJA[franja]}... "
-          f"¡te estaba esperando, dueño-amo!")
+        f"¡te estaba esperando, dueño-amo!")
 
 
 cargar_habitos()
@@ -514,7 +543,7 @@ def contiene_alguna(mensaje, opciones):
     Seguimos utilizando reglas preestablecidas.
     """
     for opcion in opciones:
-        patron = r"\b" + re.escape(normalizar_texto(opcion)) + r"\b"
+        patron = r"\b" + re.escape(suavizar_texto(normalizar_texto(opcion))) + r"\b"
         if re.search(patron, mensaje):
             return True
     return False
@@ -942,10 +971,16 @@ def coincide(mensaje, categoria, base):
     haya aprendido para esa categoría.
     """
     for palabra in base:
-        if normalizar_texto(palabra) in mensaje:
+        if suavizar_texto(normalizar_texto(palabra)) in mensaje:
             return True
     aprendidas = vocabulario["palabras"].get(categoria, [])
-    return bool(aprendidas) and contiene_alguna(mensaje, aprendidas)
+    if aprendidas and contiene_alguna(mensaje, aprendidas):
+        return True
+    # Último recurso: coincidencia aproximada (errores de tipeo leves).
+    for palabra in list(base) + aprendidas:
+        if palabra_parecida(suavizar_texto(normalizar_texto(palabra)), mensaje):
+            return True
+    return False
 
 
 def limpiar_frase(texto):
@@ -961,7 +996,7 @@ def ensenar_palabra(frase, categoria):
     vocabulario["palabras"][categoria].append(frase)
     guardar_vocabulario()
     print(f"😸📖 Michi: ¡Aprendí! Ahora sé que «{frase}» tiene que ver con "
-          f"{NOMBRES_CATEGORIA[categoria]}.")
+        f"{NOMBRES_CATEGORIA[categoria]}.")
 
 
 def listar_categorias():
@@ -1013,7 +1048,7 @@ def procesar_aprendizaje(original, mensaje):
                 print("🐱❓ Michi: Enséñame frases cortas, de máximo 4 palabras, por favor.")
             elif categoria is None:
                 print("🐱❓ Michi: No conozco esa categoría. Las que sé son: "
-                      + listar_categorias() + ".")
+                    + listar_categorias() + ".")
             else:
                 ensenar_palabra(palabra, categoria)
             return True
@@ -1065,8 +1100,114 @@ def procesar_aprendizaje(original, mensaje):
 
 cargar_vocabulario()
 
+# ===================================================================
+# MEMORIA DEL DUEÑO: nombre y gustos
+# ===================================================================
+# Michi recuerda lo que le cuentas de ti ("me llamo Ana", "me gusta el
+# pollo") y lo usa después. Se guarda en perfil_michi.json. Sigue siendo
+# una regla: detecta el patrón de la frase y guarda el texto, sin
+# entender su significado.
+ARCHIVO_PERFIL = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "perfil_michi.json"
+)
+perfil = {"nombre": None, "gustos": []}
+
+
+def guardar_perfil():
+    try:
+        with open(ARCHIVO_PERFIL, "w", encoding="utf-8") as archivo:
+            json.dump(perfil, archivo, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def cargar_perfil():
+    if not os.path.exists(ARCHIVO_PERFIL):
+        return
+    try:
+        with open(ARCHIVO_PERFIL, encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        perfil["nombre"] = datos.get("nombre") or None
+        perfil["gustos"] = [str(g) for g in datos.get("gustos", [])][-30:]
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
+def amo():
+    """Cómo llama Michi al dueño: por su nombre si lo conoce."""
+    return perfil["nombre"] or "dueño-amo"
+
+
+def saludo_horario():
+    franja = franja_del_dia(datetime.now().hour)
+    if franja == "mañana":
+        return "Buenos días"
+    if franja == "tarde":
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
+def procesar_perfil(original, mensaje):
+    """True si el mensaje trataba del nombre o los gustos del dueño."""
+    ms = suavizar_texto(mensaje)
+
+    # "me llamo Ana" / "mi nombre es Ana" / "llámame Ana"
+    m = re.search(r"\b(?:me llamo|mi nombre es|ll[aá]mame)\s+(.+?)[\s.!]*$",
+                original, flags=re.IGNORECASE)
+    if m:
+        nombre = limpiar_frase(m.group(1))
+        if not nombre or len(nombre.split()) > 3:
+            print("🐱❓ Michi: Miau... dime solo tu nombre, de máximo 3 palabras.")
+            return True
+        perfil["nombre"] = " ".join(p[:1].upper() + p[1:] for p in nombre.split())
+        guardar_perfil()
+        print(random.choice([
+            f"😻✨ Michi: ¡Mucho gusto, {perfil['nombre']}! Ya me lo aprendí.",
+            f"😸🐾 Michi: ¡{perfil['nombre']}! Qué nombre tan bonito, miau.",
+            f"🥰📝 Michi: ¡Anotado! De ahora en adelante te diré {perfil['nombre']}.",
+        ]))
+        return True
+
+    if contiene_alguna(ms, ["como me llamo", "cual es mi nombre", "sabes mi nombre",
+                            "recuerdas mi nombre", "sabes como me llamo"]):
+        if perfil["nombre"]:
+            print(f"😸❤️ Michi: ¡Claro que sí! Te llamas {perfil['nombre']}.")
+        else:
+            print("🐱❓ Michi: Miau... todavía no sé tu nombre. Dime: «me llamo ...»")
+        return True
+
+    # "me gusta el pollo" / "me encantan los gatos"
+    m = re.match(r"^me (?:gusta|gustan|encanta|encantan)\s+(.+?)[\s.!]*$", mensaje)
+    if m:
+        gusto = limpiar_frase(m.group(1))
+        if gusto and len(gusto.split()) <= 6:
+            if gusto not in perfil["gustos"]:
+                perfil["gustos"].append(gusto)
+                del perfil["gustos"][:-30]
+                guardar_perfil()
+            print(random.choice([
+                f"😸📝 Michi: ¡Anotado, {amo()}! Recordaré que te gusta «{gusto}».",
+                f"🥰🐾 Michi: ¡Qué bien! «{gusto}»... lo guardo en mi cabecita.",
+                f"😻✨ Michi: ¿«{gusto}»? ¡Miau! Ahora sé algo más de ti.",
+            ]))
+            return True
+
+    if contiene_alguna(ms, ["que me gusta", "que cosas me gustan", "cuales son mis gustos",
+                            "que sabes de mis gustos"]):
+        if perfil["gustos"]:
+            print("😸📖 Michi: Me has contado que te gusta: " + ", ".join(perfil["gustos"]) + ".")
+        else:
+            print("🐱❓ Michi: Todavía no me has contado qué te gusta. Dime: «me gusta ...»")
+        return True
+
+    return False
+
+
+cargar_perfil()
+
+
 # CONVERSACIÓN POR REFLEJOS
-def conversar(mensaje):
+def _conversar_reglas(mensaje):
     """
     Michi NO comprende lenguaje natural.
     Solamente:
@@ -1083,6 +1224,11 @@ def conversar(mensaje):
     # APRENDIZAJE: comandos de enseñanza y respuesta a "¿qué significa?"
     if procesar_aprendizaje(original, mensaje):
         return
+    # PERFIL DEL DUEÑO: nombre y gustos
+    if procesar_perfil(original, mensaje):
+        return
+    # A partir de aquí se ignoran letras alargadas ("holaaaa" -> "hola").
+    mensaje = suavizar_texto(mensaje)
     # FRASES ENSEÑADAS POR EL USUARIO (tienen prioridad sobre las reglas)
     for frase_aprendida, respuesta_aprendida in vocabulario["respuestas"].items():
         if contiene_alguna(mensaje, [frase_aprendida]):
@@ -1104,7 +1250,8 @@ def conversar(mensaje):
     if coincide(mensaje, "saludo", ["hola", "holi", "buenos dias",
                                     "buenas tardes", "buenas noches"]):
         respuestas = [
-            "😸🐾 Michi: ¡Miauuuu! ¡Holaaaa, dueño-amo!",
+            f"😸🐾 Michi: ¡Miauuuu! ¡Holaaaa, {amo()}!",
+            f"😸☀️ Michi: ¡{saludo_horario()}, {amo()}!",
             "🐱❤️ Michi: ¡Hola! Qué bueno verte otra vez.",
             "😻✨ Michi: ¡Te estaba esperando!",
             "😸🎾 Michi: ¡Holaaa! ¿Jugamos?"
@@ -1176,7 +1323,7 @@ def conversar(mensaje):
         "te quiero","te amo","te adoro"
     ]):
         respuestas = [
-            "🥰❤️ Michi: ¡Yo también te quiero muchísimo, dueño-amo!",
+            f"🥰❤️ Michi: ¡Yo también te quiero muchísimo, {amo()}!",
             "😻💕 Michi: ¡Miauuuu! ¡Me haces muy feliz!",
             "🐱❤️✨ Michi: Mi corazoncito gatuno está feliz."
         ]
@@ -1221,7 +1368,7 @@ def conversar(mensaje):
     # GRACIAS
     elif coincide(mensaje, "gracias", ["gracias"]):
         respuestas = [
-            "😸❤️ Michi: ¡De nada, amo!",
+            f"😸❤️ Michi: ¡De nada, {amo()}!",
             "🐱🐾 Michi: ¡Miauuu! Para eso estoy.",
             "🥰 Michi: ¡Siempre!"
         ]
@@ -1252,6 +1399,28 @@ def conversar(mensaje):
             "😸🐾 Michi: Mis creadores aun no me enseñan esas palabras. Lo siento"
         ]
         print(random.choice(respuestas))
+# Probabilidad de que Michi, tras responder, mencione por su cuenta una
+# necesidad importante (hambre, cansancio, falta de cariño...).
+PROB_COMENTARIO_ESTADO = 0.35
+
+
+def conversar(mensaje):
+    """
+    Punto de entrada de la conversación. Aplica las reglas y, a veces,
+    Michi añade por iniciativa propia lo que más necesita en ese momento
+    (su meta más urgente), para que la charla se sienta menos mecánica.
+    """
+    _conversar_reglas(mensaje)
+    if not mascota["viva"] or pendiente_aprender["frase"] is not None:
+        return
+    if normalizar_texto(mensaje).startswith(("aprende", "olvida", "borra")):
+        return
+    if random.random() < PROB_COMENTARIO_ESTADO:
+        metas = definir_metas(percibir())
+        if metas and metas[0][1] >= 5:      # solo necesidades importantes
+            actuar(metas[0][2])
+
+
 # ESTADÍSTICAS VISUALES DE MICHI
 def mostrar_estadisticas_de_michi():
     def barra(valor):

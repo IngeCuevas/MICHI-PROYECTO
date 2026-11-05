@@ -281,6 +281,96 @@
    "hora": 10,
    "fecha": "2026-09-24",
    "espera": 2
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 8
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "jugar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 1
+  },
+  {
+   "accion": "descansar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "dar_carino",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 1
+  },
+  {
+   "accion": "jugar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 4
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 5
+  },
+  {
+   "accion": "descansar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 1
+  },
+  {
+   "accion": "alimentar",
+   "hora": 11,
+   "fecha": "2026-11-03",
+   "espera": 0
   }
  ]
 }
