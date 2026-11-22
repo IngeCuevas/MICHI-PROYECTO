@@ -1762,8 +1762,8 @@ def elegir_inicio(forzar=False):
     """Decide de qué hablar: primero retoma recuerdos, luego temas nuevos."""
     ahora = time.time()
     pendientes = [(k, r) for k, r in perfil["recuerdos"].items()
-                  if k in SEGUIMIENTOS and not r.get("retomado")
-                  and ahora - r.get("ts", 0) >= SEGUNDOS_ANTES_DE_RETOMAR]
+                if k in SEGUIMIENTOS and not r.get("retomado")
+                and ahora - r.get("ts", 0) >= SEGUNDOS_ANTES_DE_RETOMAR]
     if pendientes:
         clave, recuerdo = random.choice(pendientes)
         recuerdo["retomado"] = True
