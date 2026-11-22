@@ -102,60 +102,395 @@ def obtener_expresion():
         return "🐱✨ Estoy tranquilito... miau"
 
 # ===================================================================
-# AGENTE BASADO EN METAS
+# AGENTE QUE APRENDE (aprendizaje por refuerzo)
 # ===================================================================
-# Michi dejó de ser un agente de reflejo simple. Ahora mantiene una
-# lista EXPLÍCITA de metas (necesidades que quiere satisfacer), cada
-# una con una prioridad. En cada momento, revisa cuáles metas siguen
-# sin cumplirse y elige comunicar/perseguir SIEMPRE la de mayor
-# urgencia, en vez de reaccionar ciegamente a la última percepción.
+# Michi YA NO es un agente basado en metas (con prioridades escritas a
+# mano). Ahora es un AGENTE QUE APRENDE: mejora su desempeño con la
+# experiencia. Tiene las cuatro partes clásicas de un agente que
+# aprende (Russell y Norvig):
 #
-# Cada tupla es: (nombre_meta, prueba_de_meta_no_cumplida, prioridad, etiqueta_accion)
-# A mayor número de prioridad, más urgente es esa meta.
-DEFINICION_METAS = [
-    ("salud_critica",      lambda p: p["salud"] <= 20,                              10, "PEDIR_CUIDADO"),
-    ("comida_urgente",     lambda p: p["comida"] <= 10,                              9, "COMIDA_URGENTE"),
-    ("comida_baja",        lambda p: p["comida"] <= 30,                              7, "PEDIR_COMIDA"),
-    ("energia_baja",       lambda p: p["energia"] <= 20,                             6, "PEDIR_DESCANSO"),
-    ("carino_pendiente",   lambda p: p["horas_sin_carino"] >= 4,                      5, "PEDIR_CARINO"),
-    ("atencion_pendiente", lambda p: p["horas_sin_cuidado"] >= 6,                     4, "PEDIR_ATENCION"),
-    ("felicidad_baja",     lambda p: p["felicidad"] <= 30,                            3, "ESTAR_TRISTE"),
-    ("quiere_jugar",       lambda p: p["energia"] >= 80 and p["felicidad"] >= 70,     1, "QUERER_JUGAR"),
-]
+#   1. ELEMENTO DE DESEMPEÑO   -> seleccionar_accion(): elige qué pedirle
+#                                 al dueño usando lo que ya aprendió.
+#   2. CRÍTICA                 -> calcular_recompensa(): juzga si la acción
+#                                 salió bien (¿me hizo caso? ¿mejoró mi
+#                                 bienestar?) o mal (¿me ignoró?).
+#   3. ELEMENTO DE APRENDIZAJE -> aprender(): actualiza la tabla de valores
+#                                 (Q-learning) con esa recompensa.
+#   4. GENERADOR DE PROBLEMAS  -> a veces Michi EXPLORA: prueba una acción
+#                                 poco probada para descubrir algo nuevo.
+#
+# Qué aprende: en cada SITUACIÓN (por ejemplo "tengo hambre grave"),
+# cuál de sus peticiones (pedir comida, pedir cariño, quedarse tranquilo,
+# invitar a jugar...) le funciona mejor CON ESTE DUEÑO. Si pide comida y
+# el dueño lo alimenta, gana recompensa. Si el dueño está pero lo ignora,
+# recibe un castigo y aprende a insistir menos. Si el dueño no está, no
+# hay retroalimentación y por eso no aprende nada de ese rato.
+#
+# Lo aprendido se guarda en aprendizaje_michi.json (se conserva entre
+# sesiones). Para que Michi "olvide todo", basta con borrar ese archivo.
+ARCHIVO_APRENDIZAJE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "aprendizaje_michi.json"
+)
+
+# --- Parámetros del aprendizaje (se pueden ajustar para experimentar) ---
+ALFA = 0.3                  # tasa de aprendizaje: cuánto pesa cada experiencia nueva
+GAMMA = 0.5                 # cuánto importa el futuro frente a la recompensa inmediata
+EPSILON_INICIAL = 0.30      # al empezar, explora el 30% de las veces
+EPSILON_MIN = 0.05          # nunca deja de explorar del todo
+DECAIMIENTO = 0.97          # cada experiencia reduce la exploración un 3%
+CONOCIMIENTO_PREVIO = 0.5   # "instinto" inicial; con 0 Michi empieza sin saber nada
+VENTANA_TICKS = 2           # horas de Michi que espera tu respuesta antes de juzgar su petición
+
+# --- Parámetros de la crítica (recompensas) ---
+ESCALA_RECOMPENSA = 5.0     # el cambio de bienestar se divide entre esto
+RECOMPENSA_ACIERTO = 2.0    # el dueño atendió justo lo que Michi pidió
+RECOMPENSA_FALLO = -0.5     # el dueño lo cuidó, pero con algo distinto a lo pedido
+FALSA_ALARMA = -1.0         # el dueño respondió, pero Michi no necesitaba nada (cry wolf)
+UMBRAL_UTIL = 5             # cuánto debe subir una estadística baja para que el cuidado cuente como útil
+CASTIGO_IGNORADO = -1.0     # el dueño estaba presente y no le hizo caso
+RECOMPENSA_ELOGIO = 2.0     # "bien hecho", "buen michi"...
+CASTIGO_REGANO = -2.0       # "no michi", "mal michi"...
+VIGENCIA_RETROALIMENTACION = 60   # segundos en que un elogio/regaño se refiere a lo último que hizo
+
+# Cuánto pesa cada estadística en el "bienestar" global de Michi.
+PESO_BIENESTAR = {"salud": 0.35, "felicidad": 0.25, "comida": 0.25, "energia": 0.15}
+
+# Cuándo una estadística cuenta como "necesidad leve" o "necesidad grave".
+# Se usan para describir la situación Y para juzgar si un cuidado hacía falta.
+UMBRAL_LEVE = {"salud": 60, "comida": 50, "energia": 50, "felicidad": 50}
+UMBRAL_GRAVE = {"salud": 20, "comida": 10, "energia": 20, "felicidad": 20}
+
+# --- Situaciones (estados) y peticiones (acciones) ---
+# Un estado describe la PEOR necesidad del momento y qué tan grave es.
+# (Solo sirve para describir la situación: NO decide qué hace Michi.)
+NECESIDADES = ("salud", "comida", "energia", "carino", "atencion", "felicidad")
+ESTADOS = ([f"{n}_{g}" for n in NECESIDADES for g in ("leve", "grave")]
+           + ["bien", "bien_con_energia"])
+ACCIONES = ["PEDIR_CUIDADO", "COMIDA_URGENTE", "PEDIR_COMIDA", "PEDIR_DESCANSO",
+            "PEDIR_CARINO", "PEDIR_ATENCION", "ESTAR_TRISTE", "QUERER_JUGAR", "TRANQUILO"]
+
+# Qué cuidados del dueño cuentan como "me hizo caso" para cada petición.
+ATIENDE = {
+    "PEDIR_CUIDADO":  {"alimentar", "dar_carino"},
+    "COMIDA_URGENTE": {"alimentar"},
+    "PEDIR_COMIDA":   {"alimentar"},
+    "PEDIR_DESCANSO": {"descansar"},
+    "PEDIR_CARINO":   {"dar_carino"},
+    "PEDIR_ATENCION": {"alimentar", "dar_carino", "jugar", "descansar"},
+    "ESTAR_TRISTE":   {"dar_carino", "jugar"},
+    "QUERER_JUGAR":   {"jugar"},
+    "TRANQUILO":      set(),
+}
+
+SINTOMA = {
+    "salud": "mi salud está mal",
+    "comida": "tengo hambre",
+    "energia": "tengo sueño",
+    "carino": "necesito cariño",
+    "atencion": "llevo rato sin atención",
+    "felicidad": "estoy triste",
+}
+DESCRIPCION_ACCION = {
+    "PEDIR_CUIDADO": "pedir que me cuides",
+    "COMIDA_URGENTE": "gritar que tengo mucha hambre",
+    "PEDIR_COMIDA": "pedir comidita",
+    "PEDIR_DESCANSO": "pedir descansar",
+    "PEDIR_CARINO": "pedir cariño",
+    "PEDIR_ATENCION": "reclamar atención",
+    "ESTAR_TRISTE": "ponerme triste",
+    "QUERER_JUGAR": "invitarte a jugar",
+    "TRANQUILO": "quedarme tranquilo",
+}
+
+# --- Memoria del agente (lo que aprende) ---
+tabla_q = {e: {a: 0.0 for a in ACCIONES} for e in ESTADOS}     # valor de cada petición en cada situación
+visitas = {e: {a: 0 for a in ACCIONES} for e in ESTADOS}       # cuántas veces probó cada una
+aprendizaje = {"experiencias": 0}
+recompensas_recientes = deque(maxlen=10)
+pendiente = {"decision": None, "ultima": None}   # petición esperando respuesta / la última que hizo
+actividad_dueno = {"ultima": 0.0}                # última vez que el dueño interactuó
+# El hilo del agente y la ventana (o la consola) tocan estos datos a la vez.
+candado_aprendizaje = threading.RLock()
 
 
-def definir_metas(percepcion):
-    """
-    Devuelve la lista de metas actualmente NO satisfechas, ordenadas
-    de mayor a menor prioridad. Esto reemplaza la cadena de if/elif
-    de un reflejo simple: en vez de reglas aisladas, ahora hay una
-    lista de objetivos explícitos que compiten entre sí.
-    """
-    metas_pendientes = [
-        (nombre, prioridad, etiqueta)
-        for nombre, prueba, prioridad, etiqueta in DEFINICION_METAS
-        if prueba(percepcion)
-    ]
-    metas_pendientes.sort(key=lambda meta: -meta[1])
-    return metas_pendientes
-
-
-def seleccionar_accion_por_metas(percepcion):
-    """
-    El 'cerebro' del agente basado en metas: revisa todas las metas
-    no satisfechas y elige la acción asociada a la de MAYOR prioridad.
-    Si no hay ninguna meta pendiente, Michi está conforme (TRANQUILO).
-    """
-    metas = definir_metas(percepcion)
-    if not metas:
+def _accion_instintiva(estado):
+    """La petición 'natural' para cada situación (el conocimiento previo)."""
+    if estado == "bien":
         return "TRANQUILO"
-    _, _, etiqueta_mas_urgente = metas[0]
-    return etiqueta_mas_urgente
+    if estado == "bien_con_energia":
+        return "QUERER_JUGAR"
+    necesidad, nivel = estado.rsplit("_", 1)
+    if necesidad == "comida":
+        return "COMIDA_URGENTE" if nivel == "grave" else "PEDIR_COMIDA"
+    return {"salud": "PEDIR_CUIDADO", "energia": "PEDIR_DESCANSO",
+            "carino": "PEDIR_CARINO", "atencion": "PEDIR_ATENCION",
+            "felicidad": "ESTAR_TRISTE"}[necesidad]
+
+
+for _estado in ESTADOS:
+    tabla_q[_estado][_accion_instintiva(_estado)] = CONOCIMIENTO_PREVIO
+
+
+def registrar_actividad():
+    """Anota que el dueño está presente (habló o cuidó a Michi)."""
+    actividad_dueno["ultima"] = time.time()
+
+
+def epsilon_actual():
+    """Probabilidad de explorar: empieza alta y baja con la experiencia."""
+    return max(EPSILON_MIN, EPSILON_INICIAL * (DECAIMIENTO ** aprendizaje["experiencias"]))
+
+
+def bienestar(percepcion):
+    return sum(percepcion[clave] * peso for clave, peso in PESO_BIENESTAR.items())
+
+
+def codificar_estado(percepcion):
+    """Convierte la percepción en una de las situaciones de ESTADOS."""
+    p = percepcion
+    gravedad = {
+        clave: 2 if p[clave] <= UMBRAL_GRAVE[clave] else 1 if p[clave] <= UMBRAL_LEVE[clave] else 0
+        for clave in UMBRAL_LEVE
+    }
+    gravedad["carino"] = 2 if p["horas_sin_carino"] >= 8 else 1 if p["horas_sin_carino"] >= 4 else 0
+    gravedad["atencion"] = 2 if p["horas_sin_cuidado"] >= 12 else 1 if p["horas_sin_cuidado"] >= 6 else 0
+    peor = max(NECESIDADES, key=lambda n: gravedad[n])   # en empate, gana la primera de la lista
+    if gravedad[peor] == 0:
+        return "bien_con_energia" if p["energia"] >= 80 and p["felicidad"] >= 70 else "bien"
+    return f"{peor}_{'grave' if gravedad[peor] == 2 else 'leve'}"
+
+
+def describir_estado(estado):
+    if estado == "bien":
+        return "estoy bien"
+    if estado == "bien_con_energia":
+        return "estoy bien y con mucha energía"
+    necesidad, nivel = estado.rsplit("_", 1)
+    return f"{SINTOMA[necesidad]} ({nivel})"
+
+
+def guardar_aprendizaje():
+    try:
+        with open(ARCHIVO_APRENDIZAJE, "w", encoding="utf-8") as archivo:
+            json.dump({"experiencias": aprendizaje["experiencias"],
+                       "q": tabla_q, "visitas": visitas},
+                      archivo, ensure_ascii=False, indent=1)
+    except OSError:
+        pass  # si no se puede guardar, Michi sigue aprendiendo en memoria
+
+
+def cargar_aprendizaje():
+    if not os.path.exists(ARCHIVO_APRENDIZAJE):
+        return
+    try:
+        with open(ARCHIVO_APRENDIZAJE, encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        aprendizaje["experiencias"] = max(0, int(datos.get("experiencias", 0)))
+        for estado in ESTADOS:
+            for accion in ACCIONES:
+                q = datos.get("q", {}).get(estado, {}).get(accion)
+                v = datos.get("visitas", {}).get(estado, {}).get(accion)
+                if isinstance(q, (int, float)):
+                    tabla_q[estado][accion] = float(q)
+                if isinstance(v, int):
+                    visitas[estado][accion] = v
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass  # archivo dañado: Michi empieza a aprender desde cero
+
+
+# 1) ELEMENTO DE DESEMPEÑO: elegir qué hacer
+def seleccionar_accion(estado, explorar=True):
+    """
+    Devuelve (accion, explorando). Casi siempre elige la petición con
+    mayor valor aprendido para esta situación. Con probabilidad epsilon
+    actúa el GENERADOR DE PROBLEMAS: elige la acción menos probada, para
+    descubrir si funciona mejor que lo que ya conoce.
+    """
+    with candado_aprendizaje:
+        if explorar and random.random() < epsilon_actual():
+            minimo = min(visitas[estado].values())
+            candidatas = [a for a, v in visitas[estado].items() if v == minimo]
+            return random.choice(candidatas), True
+        mejor = max(tabla_q[estado].values())
+        candidatas = [a for a, v in tabla_q[estado].items() if v == mejor]
+        return random.choice(candidatas), False
+
+
+# 2) CRÍTICA: juzgar cómo le fue
+def cuidado_fue_util(antes, despues, accion):
+    """
+    True si el cuidado resolvió una necesidad real: subió una estadística
+    que estaba baja, o puso al día el cariño / la atención. Evita que
+    Michi aprenda a "hacer drama" cuando en realidad no necesitaba nada.
+    """
+    if accion == "QUERER_JUGAR":
+        return True          # jugar es justo lo que pidió: divertirse ya es su recompensa
+    if any(antes[k] <= UMBRAL_LEVE[k] and despues[k] - antes[k] >= UMBRAL_UTIL
+           for k in UMBRAL_LEVE):
+        return True
+    return (antes["horas_sin_carino"] - despues["horas_sin_carino"] >= 4
+            or antes["horas_sin_cuidado"] - despues["horas_sin_cuidado"] >= 6)
+
+
+def calcular_recompensa(decision, percepcion, cuidado):
+    """
+    Recompensa = cambio de bienestar desde que pidió + juicio sobre la
+    respuesta del dueño: ¿atendió lo que pidió (y era necesario), otra
+    cosa, o lo ignoró?
+    """
+    recompensa = (bienestar(percepcion) - decision["bienestar"]) / ESCALA_RECOMPENSA
+    accion = decision["accion"]
+    if accion == "TRANQUILO":
+        return recompensa            # no pidió nada: no se le puede ignorar
+    if cuidado is None:
+        return recompensa + CASTIGO_IGNORADO
+    if cuidado in ATIENDE[accion]:
+        if cuidado_fue_util(decision["antes"], percepcion, accion):
+            return recompensa + RECOMPENSA_ACIERTO
+        return recompensa + FALSA_ALARMA
+    return recompensa + RECOMPENSA_FALLO
+
+
+# 3) ELEMENTO DE APRENDIZAJE: actualizar la tabla de valores
+def aprender(estado, accion, recompensa, estado_siguiente):
+    """Q(s,a) <- Q(s,a) + alfa * (recompensa + gamma * max Q(s',·) - Q(s,a))"""
+    q_actual = tabla_q[estado][accion]
+    mejor_futuro = max(tabla_q[estado_siguiente].values())
+    tabla_q[estado][accion] = q_actual + ALFA * (recompensa + GAMMA * mejor_futuro - q_actual)
+    visitas[estado][accion] += 1
+    aprendizaje["experiencias"] += 1
+    recompensas_recientes.append(recompensa)
+    guardar_aprendizaje()
+
+
+def abrir_decision(estado, accion, percepcion):
+    """Michi hizo una petición y ahora espera ver cómo responde el dueño."""
+    decision = {"estado": estado, "accion": accion, "antes": percepcion,
+                "bienestar": bienestar(percepcion), "t0": time.time(), "ticks": 0}
+    pendiente["decision"] = decision
+    pendiente["ultima"] = decision
+
+
+def cerrar_decision(cuidado=None):
+    """
+    Termina de evaluar la petición pendiente (si la hay).
+    cuidado: lo que hizo el dueño ('alimentar', 'dar_carino', 'jugar',
+    'descansar') o None si se acabó el tiempo sin que lo cuidara.
+    """
+    decision = pendiente["decision"]
+    if decision is None:
+        return
+    pendiente["decision"] = None
+    # Si el dueño ni siquiera apareció, no hay retroalimentación:
+    # no se puede decir que lo ignoró, así que no se aprende nada.
+    if cuidado is None and actividad_dueno["ultima"] < decision["t0"]:
+        return
+    percepcion = percibir()
+    recompensa = calcular_recompensa(decision, percepcion, cuidado)
+    aprender(decision["estado"], decision["accion"], recompensa, codificar_estado(percepcion))
+
+
+def aprender_de_cuidado(cuidado):
+    """Se llama al terminar alimentar(), dar_carino(), jugar() o descansar()."""
+    with candado_aprendizaje:
+        cerrar_decision(cuidado)
+
+
+def retroalimentar(valor):
+    """Elogio o regaño del dueño: ajusta directamente lo último que hizo Michi."""
+    with candado_aprendizaje:
+        ultima = pendiente["ultima"]
+        if ultima is None or time.time() - ultima["t0"] > VIGENCIA_RETROALIMENTACION:
+            return
+        tabla_q[ultima["estado"]][ultima["accion"]] += ALFA * valor
+        guardar_aprendizaje()
+
+
+def decidir_y_actuar():
+    """
+    Lo que hace Michi cada hora: si ya había hecho una petición, espera
+    (VENTANA_TICKS) a ver si el dueño responde y luego la evalúa. Después
+    percibe, elige una nueva petición y la dice.
+    """
+    with candado_aprendizaje:
+        decision = pendiente["decision"]
+        if decision is not None:
+            decision["ticks"] += 1
+            if decision["ticks"] < VENTANA_TICKS:
+                return None               # sigue esperando la respuesta del dueño
+            cerrar_decision(None)         # se acabó la espera: ¿lo ignoraron?
+        percepcion = percibir()
+        estado = codificar_estado(percepcion)
+        accion, _ = seleccionar_accion(estado)
+        abrir_decision(estado, accion, percepcion)
+    actuar(accion)
+    return accion
+
+
+# Necesidades por las que Michi habla por iniciativa propia durante una charla.
+NECESIDADES_IMPORTANTES = ("salud", "comida", "energia", "carino")
+
+
+def accion_para_comentar():
+    """
+    Lo que Michi comenta por su cuenta mientras platican: usa lo que ya
+    aprendió (sin explorar) y solo si la necesidad es importante.
+    """
+    estado = codificar_estado(percibir())
+    if estado in ("bien", "bien_con_energia"):
+        return None
+    necesidad, nivel = estado.rsplit("_", 1)
+    if nivel != "grave" and necesidad not in NECESIDADES_IMPORTANTES:
+        return None
+    accion, _ = seleccionar_accion(estado, explorar=False)
+    return None if accion == "TRANQUILO" else accion
+
+
+def resumen_aprendizaje():
+    """Una línea para mostrar en la interfaz."""
+    n = aprendizaje["experiencias"]
+    explora = round(100 * epsilon_actual())
+    if not recompensas_recientes:
+        return f"📈 Michi está aprendiendo · experiencias: {n} · explora {explora}%"
+    promedio = sum(recompensas_recientes) / len(recompensas_recientes)
+    return (f"📈 Experiencias: {n} · recompensa reciente: {promedio:+.1f} "
+            f"· explora {explora}%")
+
+
+def mostrar_aprendizaje():
+    """Lo que Michi ha aprendido: su mejor petición en cada situación."""
+    n = aprendizaje["experiencias"]
+    if n < 3:
+        print(f"🐱🔍 Michi: Apenas estoy empezando a aprender, amo... llevo {n} "
+              f"experiencia(s). ¡Cuídame y platica conmigo para que aprenda!")
+        return
+    print("\n🧠🐱 LO QUE HE APRENDIDO A PEDIR")
+    print(f"   ({n} experiencias · exploro cosas nuevas el "
+          f"{round(100 * epsilon_actual())}% de las veces)")
+    with candado_aprendizaje:
+        for estado in ESTADOS:
+            probadas = [a for a in ACCIONES if visitas[estado][a] > 0]
+            if not probadas:
+                continue
+            valores = tabla_q[estado]
+            mejor = max(ACCIONES, key=lambda a: valores[a])
+            veces = visitas[estado][mejor]
+            detalle = (f"probado {veces} {'vez' if veces == 1 else 'veces'}"
+                       if veces else "por instinto")
+            linea = (f"   • Cuando {describir_estado(estado)}: lo mejor es "
+                     f"{DESCRIPCION_ACCION[mejor]} (valor {valores[mejor]:+.1f}, {detalle})")
+            peor = min(probadas, key=lambda a: valores[a])
+            if peor != mejor and visitas[estado][peor] >= 2 and valores[peor] < 0:
+                linea += f" · evito {DESCRIPCION_ACCION[peor]} ({valores[peor]:+.1f})"
+            print(linea)
+
+
+cargar_aprendizaje()
 
 
 # ACCIONES DEL AGENTE
 # NOTA: las claves de este diccionario ahora coinciden EXACTAMENTE con
-# las etiquetas de DEFINICION_METAS (todas con guión bajo). Antes había
+# las ACCIONES del agente que aprende (todas con guión bajo). Antes había
 # un desajuste entre "PEDIR_CUIDADO" (que devolvía la decisión) y
 # "PEDIR CUIDADO" (la clave del diccionario, con espacio), por lo que
 # la mayoría de estos mensajes nunca llegaban a imprimirse.
@@ -336,6 +671,7 @@ def registrar_cuidado(accion, momento=None):
     horas_sin_cuidado (por eso ese valor es la espera real).
     'momento' solo sirve para hacer pruebas con fechas simuladas.
     """
+    registrar_actividad()          # el dueño está presente
     momento = momento or datetime.now()
     historial_cuidados.append({
         "accion": accion,
@@ -477,6 +813,7 @@ def alimentar():
         "🥰🐾 Michi: Gracias por alimentarme ❤️"
     ]
     print(random.choice(mensajes))
+    aprender_de_cuidado("alimentar")
     mostrar_estadisticas_de_michi()
 # DAR CARIÑO
 def dar_carino():
@@ -494,12 +831,14 @@ def dar_carino():
         "❤️🐱 Michi: ¡Te estaba esperando, dueño-amo!"
     ]
     print(random.choice(mensajes))
+    aprender_de_cuidado("dar_carino")
     mostrar_estadisticas_de_michi()
 # JUGAR
 def jugar():
     if not mascota["viva"]:
         return
     if mascota["energia"] < 20:
+        registrar_actividad()
         print("😴💤 Michi: Quiero jugar... pero estoy demasiado cansadito :(")
         return
     registrar_cuidado("jugar")
@@ -517,6 +856,7 @@ def jugar():
         "🐾✨ Michi: ¡Eso estuvo geniaaaal!"
     ]
     print(random.choice(mensajes))
+    aprender_de_cuidado("jugar")
     mostrar_estadisticas_de_michi()
 # DESCANSAR
 def descansar():
@@ -533,6 +873,7 @@ def descansar():
         "🐱🛏️ Michi: Cinco minutitos más... zzz..."
     ]
     print(random.choice(mensajes))
+    aprender_de_cuidado("descansar")
     mostrar_estadisticas_de_michi()
 
 # ===================================================================
@@ -586,9 +927,9 @@ def detectar_tema_ia(mensaje):
             "michi_agente",
             [
                 "que tipo de agente eres", "que agente eres", "michi que tipo de agente",
-                "por que eres agente basado en metas", "michi es agente basado en metas",
-                "eres un agente", "que metas tienes", "cuales son tus metas",
-                "por que priorizas", "como decides que hacer"
+                "por que eres agente que aprende", "michi es agente que aprende",
+                "eres un agente", "como aprendes", "por que eres un agente que aprende",
+                "como decides que pedir", "como decides que hacer"
             ]
         ),
         # LOS CUATRO ENFOQUES (filosóficos, Russell y Norvig)
@@ -1943,6 +2284,13 @@ def _conversar_reglas(mensaje):
     # SÍ / NO / QUIZÁS (respuestas cortas, según lo último que Michi pidió)
     if responder_si_no(mensaje):
         return
+    # APRENDIZAJE DE MICHI: lo que ha aprendido a pedir (su tabla de valores)
+    if contiene_alguna(mensaje, [
+        "que aprendiste", "que sabes pedir", "tu aprendizaje",
+        "como vas aprendiendo", "tabla de valores"
+    ]):
+        mostrar_aprendizaje()
+        return
     # PATRONES: lo que Michi ha notado de los hábitos del dueño
     if contiene_alguna(mensaje, [
         "patrones", "habitos", "que has notado", "como te cuido",
@@ -2069,6 +2417,7 @@ def _conversar_reglas(mensaje):
             "🥺💔 Michi: No te enojes conmigo, dueño-amo..."
         ]
         print(random.choice(respuestas))
+        retroalimentar(CASTIGO_REGANO)      # el regaño castiga lo último que hizo
     # FELICITACIONES
     elif coincide(mensaje, "felicitacion", [
         "bien hecho","muy bien","buen michi","eres bueno", "estoy orgulloso",
@@ -2080,6 +2429,7 @@ def _conversar_reglas(mensaje):
             "🥰🏆 Michi: ¡Gracias, amo! Me esforcé mucho."
         ]
         print(random.choice(respuestas))
+        retroalimentar(RECOMPENSA_ELOGIO)   # el elogio refuerza lo último que hizo
     # GRACIAS
     elif coincide(mensaje, "gracias", ["gracias"]):
         respuestas = [
@@ -2123,8 +2473,10 @@ def conversar(mensaje):
     """
     Punto de entrada de la conversación. Aplica las reglas y, a veces,
     Michi añade por iniciativa propia lo que más necesita en ese momento
-    (su meta más urgente), para que la charla se sienta menos mecánica.
+    (lo que ha aprendido que mejor le funciona pedir), para que la
+    charla se sienta menos mecánica.
     """
+    registrar_actividad()
     _conversar_reglas(mensaje)
     if not mascota["viva"] or pendiente_aprender["frase"] is not None:
         return
@@ -2132,9 +2484,9 @@ def conversar(mensaje):
         return
     charla_estado["contador"] += 1
     if random.random() < PROB_COMENTARIO_ESTADO:
-        metas = definir_metas(percibir())
-        if metas and metas[0][1] >= 5:      # solo necesidades importantes
-            actuar(metas[0][2])
+        accion = accion_para_comentar()      # solo necesidades importantes
+        if accion:
+            actuar(accion)
             return
     # Si no hay nada urgente, a veces Michi inicia una charla con hilo.
     # Una pregunta que el dueño ignoró durante varios mensajes ya no cuenta como abierta.
@@ -2160,14 +2512,8 @@ def mostrar_estadisticas_de_michi():
     print(f"⚡ Energía:    [{barra(mascota['energia'])}] {mascota['energia']}/100")
 # MOSTRAR ESTADO
 def mostrar_estado():
-    percepcion = percibir()
-    metas = definir_metas(percepcion)
-    if metas:
-        _, _, decision = metas[0]
-        resumen_metas = ", ".join(nombre for nombre, _, _ in metas)
-    else:
-        decision = "TRANQUILO"
-        resumen_metas = "ninguna, Michi está conforme"
+    estado = codificar_estado(percibir())
+    decision, _ = seleccionar_accion(estado, explorar=False)
     print("\n" + "=" * 46)
     print("🐱✨ ESTADO DE MICHI ✨🐱")
     print("=" * 46)
@@ -2179,8 +2525,9 @@ def mostrar_estado():
     print(f"⚡ Energía: {mascota['energia']}/100")
     print(f"🕐 Horas sin cuidado: {mascota['horas_sin_cuidado']}")
     print(f"💕 Horas sin cariño: {mascota['horas_sin_carino']}")
-    print(f"🎯 Metas pendientes: {resumen_metas}")
-    print(f"🤖 Acción prioritaria: {decision}")
+    print(f"🔍 Situación percibida: {describir_estado(estado)}")
+    print(f"🤖 Lo que mejor he aprendido a hacer: {DESCRIPCION_ACCION[decision]}")
+    print(f"{resumen_aprendizaje()}")
     print("=" * 46)
 # CICLO AUTOMÁTICO DEL AGENTE
 def ciclo_agente():
@@ -2188,10 +2535,8 @@ def ciclo_agente():
         time.sleep(SEGUNDOS_POR_HORA)
         pasar_una_hora()
         if mascota["viva"]:
-            percepcion = percibir()
-            decision = seleccionar_accion_por_metas(percepcion)
             print("\n\n⏰🐾 Ha pasado una hora para Michi...")
-            actuar(decision)
+            decidir_y_actuar()
             anticipar_visita()
 # PROGRAMA DE CONSOLA (solo corre si se ejecuta este archivo directamente)
 #
@@ -2215,6 +2560,7 @@ def ejecutar_menu_consola():
     print("  Tú: ¿Cómo estás?")
     print("  Tú: aprende chido significa felicitacion   (¡enséñale palabras!)")
     print("  Tú: ¿qué patrones has notado en mí?")
+    print("  Tú: ¿qué aprendiste?   (lo que Michi ha aprendido a pedir)")
     print("\nEscribe 'menu' cuando quieras ver las opciones.\n")
     while mascota["viva"]:
         print("\n¿Qué quieres hacer?")

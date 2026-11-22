@@ -1,0 +1,315 @@
+{
+ "experiencias": 2,
+ "q": {
+  "salud_leve": {
+   "PEDIR_CUIDADO": 0.5,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "salud_grave": {
+   "PEDIR_CUIDADO": 0.5,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "comida_leve": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.5,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "comida_grave": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.5,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "energia_leve": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.5,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "energia_grave": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.5,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "carino_leve": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.5,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "carino_grave": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.5,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "atencion_leve": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.5,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "atencion_grave": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.5,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "felicidad_leve": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.5,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "felicidad_grave": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.5,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.0
+  },
+  "bien": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.0,
+   "TRANQUILO": 0.65
+  },
+  "bien_con_energia": {
+   "PEDIR_CUIDADO": 0.0,
+   "COMIDA_URGENTE": 0.0,
+   "PEDIR_COMIDA": 0.0,
+   "PEDIR_DESCANSO": 0.0,
+   "PEDIR_CARINO": 0.0,
+   "PEDIR_ATENCION": 0.0,
+   "ESTAR_TRISTE": 0.0,
+   "QUERER_JUGAR": 0.7925,
+   "TRANQUILO": 0.0
+  }
+ },
+ "visitas": {
+  "salud_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "salud_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "comida_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "comida_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "energia_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "energia_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "carino_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "carino_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "atencion_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "atencion_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "felicidad_leve": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "felicidad_grave": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 0
+  },
+  "bien": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 0,
+   "TRANQUILO": 1
+  },
+  "bien_con_energia": {
+   "PEDIR_CUIDADO": 0,
+   "COMIDA_URGENTE": 0,
+   "PEDIR_COMIDA": 0,
+   "PEDIR_DESCANSO": 0,
+   "PEDIR_CARINO": 0,
+   "PEDIR_ATENCION": 0,
+   "ESTAR_TRISTE": 0,
+   "QUERER_JUGAR": 1,
+   "TRANQUILO": 0
+  }
+ }
+}

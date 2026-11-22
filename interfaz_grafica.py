@@ -9,7 +9,8 @@ Qué muestra:
   * Michi dibujado con formas vectoriales (no es un emoji): sus ojos y su
     boca cambian según su estado y parpadea de vez en cuando.
   * Barras de salud, felicidad, comida y energía que se animan al cambiar.
-  * La meta activa del agente basado en metas.
+  * El estado de aprendizaje del agente (experiencias, recompensa reciente
+    y cuánto explora).
   * Un chat con burbujas: las tuyas a la derecha, las de Michi a la izquierda.
   * Botones de respuesta rápida (Sí / No / Bien / Mal...) cuando Michi te
     hace una pregunta.
@@ -152,29 +153,9 @@ ASPECTO = {
     "muerto":    ("x", "neutra", ()),
 }
 
-# Descripciones "amigables" de cada meta (definir_metas devuelve tuplas:
-# (nombre_meta, prioridad, etiqueta_accion)).
-DESCRIPCIONES_METAS = {
-    "salud_critica": "cuidar su salud urgentemente",
-    "comida_urgente": "conseguir comida ya mismo",
-    "comida_baja": "comer algo pronto",
-    "energia_baja": "descansar un poco",
-    "carino_pendiente": "recibir cariño",
-    "atencion_pendiente": "que le prestes atención",
-    "felicidad_baja": "sentirse mejor",
-    "quiere_jugar": "jugar contigo",
-}
-
-
-def obtener_texto_meta():
-    """Meta que Michi persigue ahora (si funciones.py aún no la define, no rompe)."""
-    if not hasattr(fn, "definir_metas"):
-        return ""
-    metas = fn.definir_metas(fn.percibir())
-    if not metas:
-        return "Michi está conforme"
-    nombre_meta = metas[0][0]
-    return "Michi quiere " + DESCRIPCIONES_METAS.get(nombre_meta, nombre_meta)
+def obtener_texto_aprendizaje():
+    """Resumen del aprendizaje de Michi (experiencias, recompensa reciente, exploración)."""
+    return fn.resumen_aprendizaje()
 
 
 def opciones_rapidas():
@@ -503,9 +484,9 @@ class VentanaMichi:
         self.lbl_expresion = tk.Label(izq, text="", bg=PANEL, fg=TEXTO_SUAVE, font=self.f_texto,
                                     wraplength=300, justify="center")
         self.lbl_expresion.pack(pady=(2, 8))
-        self.lbl_meta = tk.Label(izq, text="", bg=BOTON, fg=LUNA, font=self.f_pequena,
+        self.lbl_aprendizaje = tk.Label(izq, text="", bg=BOTON, fg=LUNA, font=self.f_pequena,
                                 wraplength=290, padx=12, pady=5)
-        self.lbl_meta.pack(pady=(0, 12))
+        self.lbl_aprendizaje.pack(pady=(0, 12))
 
         barras = tk.Frame(izq, bg=PANEL)
         barras.pack(fill="x", padx=22)
@@ -670,7 +651,7 @@ class VentanaMichi:
     def _refrescar(self):
         m = fn.mascota
         self.lbl_expresion.configure(text=fn.obtener_expresion())
-        self.lbl_meta.configure(text=obtener_texto_meta())
+        self.lbl_aprendizaje.configure(text=obtener_texto_aprendizaje())
         for clave in ("salud", "felicidad", "comida", "energia"):
             valor = m[clave]
             self.barras[clave].fijar(valor, color_segun_valor(valor))

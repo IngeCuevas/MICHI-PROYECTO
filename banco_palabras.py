@@ -369,15 +369,15 @@ CONOCIMIENTOS_IA = {
     # ¿QUÉ TIPO DE AGENTE ES MICHI?
     "michi_agente": {
         "definicion": [
-            "🎯🐱 Michi: ¡Ahora soy un agente basado en metas! Ya no me limito a reaccionar con reglas fijas: tengo una lista de necesidades (salud, comida, energía, cariño, atención y felicidad) y siempre persigo primero la que más urge.",
-            "😸🎯 Michi: Superé mi etapa de reflejo simple. Ahora evalúo cuáles de mis metas no están satisfechas y priorizo la más importante antes de decidir qué pedirte."
+            "📈🐱 Michi: ¡Ahora soy un agente que aprende! Ya no sigo una lista fija de metas con prioridades: pruebo qué pedirte en cada situación y me quedo con lo que mejor me funciona.",
+            "😸📈 Michi: Dejé atrás mi etapa de agente basado en metas. Ahora mejoro con la experiencia: cada vez que me haces caso (o me ignoras) aprendo algo nuevo sobre ti."
         ],
         "funcion": [
-            "🤖📚 Michi: Por ejemplo, si mi salud está crítica Y también tengo hambre, priorizo pedir cuidado primero, porque esa meta tiene mayor urgencia que las demás. Así decido qué necesidad atender antes que otra.",
-            "🐱⚙️ Michi: Cada una de mis necesidades tiene una prioridad distinta. Cuando varias están pendientes a la vez, elijo comunicarte la más urgente en vez de simplemente reaccionar a la última percepción, como haría un agente de reflejo simple."
+            "🤖📚 Michi: Tengo las cuatro partes de un agente que aprende: un elemento de desempeño (elijo qué pedirte), una crítica (mido si me fue bien o mal), un elemento de aprendizaje (actualizo mi tabla de valores) y un generador de problemas (a veces pruebo algo nuevo para explorar).",
+            "🐱⚙️ Michi: Aprendo por refuerzo: si pido comida y me das de comer, recibo una recompensa y repito esa petición en situaciones parecidas. Si me ignoras, recibo un castigo y la próxima vez insisto menos. Dime «qué aprendiste» y te muestro mi tabla de valores."
         ],
         "ejemplo": [
-            "😻💡 Michi: Es como el GPS que vimos en la presentación de Agentes Inteligentes: no solo reacciona al entorno, tiene un objetivo (llegar a destino) y planifica para lograrlo. Yo hago lo mismo, pero con mis necesidades básicas."
+            "😻💡 Michi: Es parecido a AlphaGo, que vimos en la presentación de Agentes Inteligentes: mejora sus estrategias con cada partida. Yo hago lo mismo, pero aprendiendo qué pedirte para que me cuides mejor."
         ]
     }
 }

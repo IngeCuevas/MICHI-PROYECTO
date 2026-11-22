@@ -755,6 +755,36 @@
    "hora": 1,
    "fecha": "2026-11-05",
    "espera": 0
+  },
+  {
+   "accion": "alimentar",
+   "hora": 23,
+   "fecha": "2026-11-21",
+   "espera": 0
+  },
+  {
+   "accion": "dar_carino",
+   "hora": 23,
+   "fecha": "2026-11-21",
+   "espera": 0
+  },
+  {
+   "accion": "dar_carino",
+   "hora": 23,
+   "fecha": "2026-11-21",
+   "espera": 0
+  },
+  {
+   "accion": "descansar",
+   "hora": 23,
+   "fecha": "2026-11-21",
+   "espera": 1
+  },
+  {
+   "accion": "jugar",
+   "hora": 23,
+   "fecha": "2026-11-21",
+   "espera": 1
   }
  ]
 }
