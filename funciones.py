@@ -9,11 +9,61 @@ import difflib
 from datetime import datetime, date, timedelta
 from collections import deque, Counter
 from banco_palabras import CONOCIMIENTOS_IA
+
+# ===================================================================
+# REPRESENTACIÓN DEL CONOCIMIENTO
+# ===================================================================
+# Formas de estructurar el conocimiento vistas en el curso
+# (Russell y Norvig, caps. 7 y 8) y cuáles usa Michi:
+#
+#   1. REGLAS (si... entonces...)           -> SÍ. Es la forma PRINCIPAL.
+#   2. REDES SEMÁNTICAS (nodos y arcos)     -> NO se usa.
+#   3. CUADROS DE MINSKY / MARCOS (frames)  -> SÍ, de forma PARCIAL.
+#   4. LÓGICA (oraciones formales)          -> NO se usa.
+#
+# 1) REGLAS. Casi todo el comportamiento de Michi son pares
+#    condición -> conclusión escritos a mano:
+#      - _conversar_reglas(): si el mensaje contiene X, responde Y.
+#      - detectar_tema_ia() y detectar_intencion_ia(): si el mensaje
+#        menciona tal concepto, entonces el tema (o la intención) es ese.
+#      - CHARLAS: árbol de diálogo; según tu respuesta, sigue una rama.
+#      - codificar_estado() con UMBRAL_LEVE / UMBRAL_GRAVE: si la comida
+#        es <= 50, entonces la situación es "hambre leve".
+#      - analizar_habitos(): si hay un patrón en los registros,
+#        entonces Michi lo comenta.
+#      - calcular_recompensa() y ATIENDE: si pidió comida y lo
+#        alimentaron, entonces recibe recompensa.
+#    Es conocimiento procedimental y heurístico, con encadenamiento
+#    hacia adelante (de lo percibido a la acción). Michi no deduce
+#    hechos nuevos: solo dispara la regla cuya condición coincide.
+#
+# 3) MARCOS (frames). Varias estructuras tienen la forma de un marco:
+#    un objeto con ranuras (slots) y sus valores.
+#      - mascota: marco MASCOTA (salud, comida, energía, felicidad...).
+#      - perfil: marco DUEÑO (nombre, gustos, recuerdos).
+#      - CONOCIMIENTOS_IA (banco_palabras.py): un marco por tema, con
+#        las ranuras definicion, lista, ejemplo y funcion.
+#    Son marcos PARCIALES: tienen slots y valores, pero no herencia
+#    entre marcos ni valores por defecto.
+#
+# 2) y 4) NO SE USAN. Michi no tiene una red de relaciones etiquetadas
+#    (como "agente PERCIBE ambiente") ni un lenguaje formal con reglas
+#    de inferencia (como P, P -> Q, luego Q).
+#
+# Nota: tabla_q (el aprendizaje) no es una regla escrita a mano, sino
+# valores numéricos aprendidos con la experiencia; ajustan QUÉ petición
+# elige Michi dentro de las reglas y marcos anteriores.
+#
+# Para encontrar cada uso, busca en el código "CONOCIMIENTO:"
+# (por ejemplo [CONOCIMIENTO: REGLAS] o [CONOCIMIENTO: MARCO]).
+#
+
 # CONFIGURACIÓN
 # Para pruebas:
 # 60 segundos reales = 1 hora para Michi
 SEGUNDOS_POR_HORA = 10
 # ESTADO DE MICHI
+# [CONOCIMIENTO: MARCO] Marco MASCOTA: ranuras (slots) con sus valores.
 mascota = {
     "nombre": "Michi",
     "salud": 100,
@@ -157,6 +207,7 @@ PESO_BIENESTAR = {"salud": 0.35, "felicidad": 0.25, "comida": 0.25, "energia": 0
 
 # Cuándo una estadística cuenta como "necesidad leve" o "necesidad grave".
 # Se usan para describir la situación Y para juzgar si un cuidado hacía falta.
+# [CONOCIMIENTO: REGLAS] Si la estadística es <= umbral, entonces hay una necesidad.
 UMBRAL_LEVE = {"salud": 60, "comida": 50, "energia": 50, "felicidad": 50}
 UMBRAL_GRAVE = {"salud": 20, "comida": 10, "energia": 20, "felicidad": 20}
 
@@ -170,6 +221,7 @@ ACCIONES = ["PEDIR_CUIDADO", "COMIDA_URGENTE", "PEDIR_COMIDA", "PEDIR_DESCANSO",
             "PEDIR_CARINO", "PEDIR_ATENCION", "ESTAR_TRISTE", "QUERER_JUGAR", "TRANQUILO"]
 
 # Qué cuidados del dueño cuentan como "me hizo caso" para cada petición.
+# [CONOCIMIENTO: REGLAS] Si Michi pidió X y el dueño hizo Y, entonces lo atendió.
 ATIENDE = {
     "PEDIR_CUIDADO":  {"alimentar", "dar_carino"},
     "COMIDA_URGENTE": {"alimentar"},
@@ -203,6 +255,7 @@ DESCRIPCION_ACCION = {
 }
 
 # --- Memoria del agente (lo que aprende) ---
+# (No son reglas escritas a mano: son valores numéricos aprendidos con la experiencia.)
 tabla_q = {e: {a: 0.0 for a in ACCIONES} for e in ESTADOS}     # valor de cada petición en cada situación
 visitas = {e: {a: 0 for a in ACCIONES} for e in ESTADOS}       # cuántas veces probó cada una
 aprendizaje = {"experiencias": 0}
@@ -246,7 +299,11 @@ def bienestar(percepcion):
 
 
 def codificar_estado(percepcion):
-    """Convierte la percepción en una de las situaciones de ESTADOS."""
+    """
+    Convierte la percepción en una de las situaciones de ESTADOS.
+    [CONOCIMIENTO: REGLAS] Cada situación sale de condiciones del tipo
+    "si la comida es <= umbral, entonces hay hambre".
+    """
     p = percepcion
     gravedad = {
         clave: 2 if p[clave] <= UMBRAL_GRAVE[clave] else 1 if p[clave] <= UMBRAL_LEVE[clave] else 0
@@ -337,6 +394,7 @@ def calcular_recompensa(decision, percepcion, cuidado):
     Recompensa = cambio de bienestar desde que pidió + juicio sobre la
     respuesta del dueño: ¿atendió lo que pidió (y era necesario), otra
     cosa, o lo ignoró?
+    [CONOCIMIENTO: REGLAS] Si lo atendió, entonces +premio; si lo ignoró, entonces castigo.
     """
     recompensa = (bienestar(percepcion) - decision["bienestar"]) / ESCALA_RECOMPENSA
     accion = decision["accion"]
@@ -706,7 +764,10 @@ def racha_de_dias(hoy):
 
 
 def analizar_habitos(hoy=None):
-    """Devuelve una lista de observaciones (texto). Requiere MIN_EVENTOS registros."""
+    """
+    Devuelve una lista de observaciones (texto). Requiere MIN_EVENTOS registros.
+    [CONOCIMIENTO: REGLAS] Si los registros muestran un patrón, entonces Michi lo comenta.
+    """
     hoy = hoy or date.today()
     eventos = historial_cuidados
     n = len(eventos)
@@ -918,6 +979,8 @@ def detectar_intencion_ia(mensaje):
         return "definicion"
 # DETECTAR TEMA DE INTELIGENCIA ARTIFICIAL
 def detectar_tema_ia(mensaje):
+    # [CONOCIMIENTO: REGLAS] Si el mensaje menciona estas palabras clave,
+    # entonces el tema de IA es el que corresponde.
     # IMPORTANTE:
     # Primero buscamos conceptos específicos.
     # Al final dejamos conceptos generales como "agente" o "IA".
@@ -1455,6 +1518,7 @@ cargar_vocabulario()
 ARCHIVO_PERFIL = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "perfil_michi.json"
 )
+# [CONOCIMIENTO: MARCO] Marco DUEÑO: ranuras nombre, gustos, recuerdos...
 perfil = {"nombre": None, "gustos": [], "recuerdos": {}, "preguntados": {}}
 
 
@@ -1803,6 +1867,8 @@ YO_POR_DEFECTO = [
     "😸🐾 Michi: ¡Yo estoy muy bien, gracias por preguntar! Sigamos con lo tuyo.",
 ]
 
+# [CONOCIMIENTO: REGLAS] Árbol de diálogo: según la respuesta del dueño,
+# entonces Michi sigue por una rama u otra.
 CHARLAS = {
     # ---------------- tema: cómo te fue hoy ----------------
     "dia": {
@@ -2248,6 +2314,8 @@ def mostrar_recuerdos():
 
 
 # CONVERSACIÓN POR REFLEJOS
+# [CONOCIMIENTO: REGLAS] Cadena de reglas "si el mensaje contiene X, entonces
+# responde Y". El primer bloque cuya condición coincide es el que responde.
 def _conversar_reglas(mensaje):
     """
     Michi NO comprende lenguaje natural.

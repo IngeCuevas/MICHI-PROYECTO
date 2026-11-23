@@ -11,11 +11,21 @@ de Inteligencia Artificial proporcionadas para el proyecto
 Michi NO aprende esta información.
 Simplemente consulta respuestas preestablecidas.
 
+REPRESENTACIÓN DEL CONOCIMIENTO:
+[CONOCIMIENTO: MARCO] Cada tema de CONOCIMIENTOS_IA es un MARCO
+(cuadro de Minsky) con ranuras (slots) fijas: "definicion",
+"lista", "ejemplo" y "funcion", cuyos valores son las respuestas.
+Es un marco parcial: no hay herencia entre temas ni valores por
+defecto. Las REGLAS que deciden qué tema y qué ranura consultar
+viven en funciones.py (detectar_tema_ia y detectar_intencion_ia).
+Resumen completo en la cabecera de funciones.py.
+
 Este archivo contiene ÚNICAMENTE datos (el diccionario
 CONOCIMIENTOS_IA). La lógica del programa vive en funciones.py,
 que importa este banco de palabras.
 """
 
+# [CONOCIMIENTO: MARCO] Un marco por tema, con las ranuras definicion/lista/ejemplo/funcion.
 CONOCIMIENTOS_IA = {
     # =================================================================
     # INTELIGENCIA ARTIFICIAL - CONCEPTOS GENERALES
